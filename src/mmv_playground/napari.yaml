@@ -11,4 +11,4 @@ contributions:
       title: Make MMV playground
   widgets:
     - command: MMV-playground.make_mmv_playground
-      display_name: MMV playground
+      display_name: MMV-playground
