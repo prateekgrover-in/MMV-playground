@@ -7,7 +7,7 @@ categories: ["Annotation", "Segmentation", "Acquisition"]
 contributions:
   commands:
     - id: MMV-playground.make_mmv_playground
-      python_name: mmv_playground:_widget:mmv_playground
+      python_name: mmv_playground._widget:mmv_playground
       title: Make MMV playground
   widgets:
     - command: MMV-playground.make_mmv_playground
