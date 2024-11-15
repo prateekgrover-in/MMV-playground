@@ -1,0 +1,30 @@
+name: MMV-playground
+display_name: MMV-playground
+# use 'hidden' to remove plugin from napari hub search results
+visibility: public
+# see https://napari.org/stable/plugins/manifest.html for valid categories
+categories: ["Annotation", "Segmentation", "Acquisition"]
+contributions:
+  commands:
+    - id: MMV-playground.make_container_widget
+      python_name: mmv_playground:ImageThreshold
+      title: Make threshold Container widget
+    - id: MMV-playground.make_magic_widget
+      python_name: mmv_playground:threshold_magic_widget
+      title: Make threshold magic widget
+    - id: MMV-playground.make_function_widget
+      python_name: mmv_playground:threshold_autogenerate_widget
+      title: Make threshold function widget
+    - id: MMV-playground.make_qwidget
+      python_name: mmv_playground:ExampleQWidget
+      title: Make example QWidget
+  widgets:
+    - command: MMV-playground.make_container_widget
+      display_name: Container Threshold
+    - command: MMV-playground.make_magic_widget
+      display_name: Magic Threshold
+    - command: MMV-playground.make_function_widget
+      autogenerate: true
+      display_name: Autogenerate Threshold
+    - command: MMV-playground.make_qwidget
+      display_name: Example QWidget
