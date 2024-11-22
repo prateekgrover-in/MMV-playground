@@ -3,11 +3,12 @@ tbd
 """
 from typing import TYPE_CHECKING
 
+import numpy as np
 import napari
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
-    # QGridLayout,
+    # QGridvbox,
     QGroupBox,
     QLabel,
     QLineEdit,
@@ -22,48 +23,49 @@ if TYPE_CHECKING:
     import napari
 
 
-class IntensityWidget(QWidget):
+class IntensityGroup(QGroupBox):
     # (15.11.2024)
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setTitle('Intensity normalization')
         self.setVisible(False)
+        self.setStyleSheet('QGroupBox {background-color: blue; ' \
+            'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
-        self.lower = 0.0        # lower percentage
-        self.upper = 90.0       # upper percentage
+        self.lower_percentage = 0.0
+        self.upper_percentage = 100.0
         self.index = 0          # layer index
 
-        # Layout and parameters for intensity normalization
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        # layout and parameters for intensity normalization
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
 
-        layout.addWidget(QLabel('Intensity normalization'))
-
-        layout.addWidget(QLabel('Image'))
+        vbox.addWidget(QLabel('Image'))
         self.image = QComboBox()
         self.image.addItems(parent.layer_names)
         self.image.currentIndexChanged.connect(self.image_changed)
-        layout.addWidget(self.image)
+        vbox.addWidget(self.image)
 
-        self.lbl_lower = QLabel('Lower percentage')
-        layout.addWidget(self.lbl_lower)
+        self.lbl_lower = QLabel('lower percentage')
+        vbox.addWidget(self.lbl_lower)
         lower = QSlider(Qt.Horizontal)
         lower.setRange(0, 500)
         lower.setSingleStep(1)
         lower.valueChanged.connect(self.lower_changed)
-        layout.addWidget(lower)
+        vbox.addWidget(lower)
 
         self.lbl_upper = QLabel('Upper percentage')
-        layout.addWidget(self.lbl_upper)
+        vbox.addWidget(self.lbl_upper)
         upper = QSlider(Qt.Horizontal)
         upper.setRange(9500, 10000)
         upper.setSingleStep(1)
         upper.valueChanged.connect(self.upper_changed)
-        layout.addWidget(upper)
+        vbox.addWidget(upper)
 
         btn_run = QPushButton('run')
         btn_run.clicked.connect(self.function_run)
-        layout.addWidget(btn_run)
+        vbox.addWidget(btn_run)
 
     def image_changed(self, index: int):
         # (19.11.2024)
@@ -71,19 +73,32 @@ class IntensityWidget(QWidget):
 
     def lower_changed(self, value: int):
         # (19.11.2024)
-        self.lower = value / 100.0
-        self.lbl_lower.setText('Lower percentage: %.2f' % (self.lower))
+        self.lower_percentage = value / 100.0
+        self.lbl_lower.setText('lower percentage: %.2f' % \
+            (self.lower_percentage))
 
     def upper_changed(self, value: int):
         # (19.11.2024)
-        self.upper = value / 100.0
-        self.lbl_upper.setText('Upper percentage: %.2f' % (self.upper))
+        self.upper_percentage = value / 100.0
+        self.lbl_upper.setText('upper percentage: %.2f' % \
+            (self.upper_percentage))
 
     def function_run(self):
-        print('run')
-        print('lower: %.2f, upper: %.2f' % (self.lower, self.upper))
         name = self.parent.layer_names[self.index]
-        print('name: %s' % (name))
+
+        if any(layer.name == name for layer in self.viewer.layers):
+            layer = self.viewer.layers[name]
+            input_image = layer.data
+        else:
+            print('Error: The image %s don\'t exist!' % (name))
+            return
+
+        lower_v = np.percentile(input_image, self.lower_percentage)
+        upper_v = np.percentile(input_image, self.upper_percentage)
+        img = np.clip(input_image, lower_v, upper_v)
+        output = (img - lower_v) / (upper_v - lower_v)
+        self.viewer.add_image(output, name='output')
+
 
 class SmoothingWidget(QWidget):
     # (15.11.2024)
@@ -91,17 +106,17 @@ class SmoothingWidget(QWidget):
         super().__init__(parent)
         self.setVisible(False)
 
-        # Layout and parameters for intensity normalization
-        layout = QVBoxLayout()
-        self.setLayout(layout)
+        # vbox and parameters for intensity normalization
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
 
-        layout.addWidget(QLabel('Smoothing'))
+        vbox.addWidget(QLabel('Smoothing'))
         button1 = QPushButton('Button 1')
-        layout.addWidget(button1)
+        vbox.addWidget(button1)
 
-        layout.addWidget(QLabel('Parameter 1'))
+        vbox.addWidget(QLabel('Parameter 1'))
         self.param1 = QLineEdit(self)
-        layout.addWidget(self.param1)
+        vbox.addWidget(self.param1)
 
 
 class mmv_playground(QWidget):
@@ -109,74 +124,76 @@ class mmv_playground(QWidget):
     def __init__(self, viewer: "napari.viewer.Viewer"):
         super().__init__()
         self.viewer = viewer
+
+        # Load the names of the existing layers
         self.init_ready = False     # the widgets are not all defined
-        self.layer_names = []
+        self.layer_names = []       # define a list for the names
         self.find_layers(None)      # load layer names
 
-        # Define a layout for the main widget
-        layout1 = QVBoxLayout()
-        self.setLayout(layout1)
+        # Define a vbox for the main widget
+        vbox1 = QVBoxLayout()
+        self.setLayout(vbox1)
 
-        # Define a scroll area inside the QVBoxLayout
+        # Define a scroll area inside the QVBoxvbox
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        layout1.addWidget(scroll_area)
+        vbox1.addWidget(scroll_area)
 
         # Define a group box inside the scroll area
         group_box = QGroupBox('MMV-Playground')
-        layout2 = QVBoxLayout()
-        group_box.setLayout(layout2)
+        vbox2 = QVBoxLayout()
+        group_box.setLayout(vbox2)
         scroll_area.setWidget(group_box)        
 
         # Button intensity normalization
         btn_intensity = QPushButton('Intensity normalization')
         btn_intensity.setCheckable(True)
-        btn_intensity.clicked.connect(self.toggle_intensity_widget)
-        layout2.addWidget(btn_intensity)
+        btn_intensity.clicked.connect(self.toggle_intensity_group)
+        vbox2.addWidget(btn_intensity)
 
-        # Intensity normalization widget
-        self.intensity_widget = IntensityWidget(self)
-        layout2.addWidget(self.intensity_widget)
+        # Intensity normalization group
+        self.intensity_group = IntensityGroup(self)
+        vbox2.addWidget(self.intensity_group)
 
         # Button smoothing
         btn_smoothing = QPushButton('Smoothing')
         btn_smoothing.setCheckable(True)
         btn_smoothing.clicked.connect(self.toggle_smoothing_widget)
-        layout2.addWidget(btn_smoothing)
+        vbox2.addWidget(btn_smoothing)
 
         # Smoothing widget
         self.smoothing_widget = SmoothingWidget(self)
-        layout2.addWidget(self.smoothing_widget)
+        vbox2.addWidget(self.smoothing_widget)
 
         # Button background correction
         btn_background = QPushButton('Background correction')
         btn_background.setCheckable(True)
         # btn_background.clicked.connect(self.toggle_background_widget)
-        layout2.addWidget(btn_background)
+        vbox2.addWidget(btn_background)
 
         # Button spot-shape filter
         btn_spot_shape = QPushButton('Spot-shape filter')
         btn_spot_shape.setCheckable(True)
         # btn_spot_shape.clicked.connect(self.toggle_spot_shape_widget)
-        layout2.addWidget(btn_spot_shape)
+        vbox2.addWidget(btn_spot_shape)
 
         # Button filament-shape filter
         btn_filament = QPushButton('Filament-shape filter')
         btn_filament.setCheckable(True)
         # btn_filament.clicked.connect(self.toggle_filament_widget)
-        layout2.addWidget(btn_filament)
+        vbox2.addWidget(btn_filament)
 
         # Button thresholding
         btn_thresholding = QPushButton('Thresholding')
         btn_thresholding.setCheckable(True)
         # btn_thresholding.clicked.connect(self.toggle_thresholding_widget)
-        layout2.addWidget(btn_thresholding)
+        vbox2.addWidget(btn_thresholding)
 
         # Button topology-preserving thinning
         btn_topology = QPushButton('Topology-preserving thinning')
         btn_topology.setCheckable(True)
         # btn_topology.clicked.connect(self.toggle_smoothing_widget)
-        layout2.addWidget(btn_topology)
+        vbox2.addWidget(btn_topology)
 
         # Create a list of layer names
         self.init_ready = True      # all widgets are defined
@@ -188,13 +205,13 @@ class mmv_playground(QWidget):
         for layer in self.viewer.layers:
             layer.events.name.connect(self.find_layers)
 
-    def toggle_intensity_widget(self, checked: bool):
+    def toggle_intensity_group(self, checked: bool):
         # Switching the visibility of the intensity widget
         # (15.11.2024)
-        if self.intensity_widget.isVisible():
-            self.intensity_widget.setVisible(False)
+        if self.intensity_group.isVisible():
+            self.intensity_group.setVisible(False)
         else:
-            self.intensity_widget.setVisible(True)
+            self.intensity_group.setVisible(True)
 
     def toggle_smoothing_widget(self, checked: bool):
         # Switching the visibility of the smoothing widget
@@ -213,9 +230,8 @@ class mmv_playground(QWidget):
         self.layer_names = lst
 
         if self.init_ready:
-            self.intensity_widget.image.clear()
-            self.intensity_widget.image.addItems(lst)
-        print(lst)
+            self.intensity_group.image.clear()
+            self.intensity_group.image.addItems(lst)
 
     def connect_rename(self, event: napari.utils.events.event.Event):
         # (20.11.2024)
