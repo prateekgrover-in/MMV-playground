@@ -8,7 +8,6 @@ import napari
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
-    # QGridvbox,
     QGroupBox,
     QLabel,
     QLineEdit,
@@ -36,6 +35,7 @@ class IntensityGroup(QGroupBox):
         self.lower_percentage = 0.0
         self.upper_percentage = 100.0
         self.index = 0          # layer index
+        self.name = ''          # layer[name]
 
         # layout and parameters for intensity normalization
         vbox = QVBoxLayout()
@@ -84,39 +84,65 @@ class IntensityGroup(QGroupBox):
             (self.upper_percentage))
 
     def function_run(self):
-        name = self.parent.layer_names[self.index]
+        # (22.11.2024)
+        self.name = self.parent.layer_names[self.index]
 
-        if any(layer.name == name for layer in self.viewer.layers):
-            layer = self.viewer.layers[name]
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
             input_image = layer.data
         else:
-            print('Error: The image %s don\'t exist!' % (name))
+            print('Error: The image %s don\'t exist!' % (self.name))
             return
 
         lower_v = np.percentile(input_image, self.lower_percentage)
         upper_v = np.percentile(input_image, self.upper_percentage)
         img = np.clip(input_image, lower_v, upper_v)
         output = (img - lower_v) / (upper_v - lower_v)
-        self.viewer.add_image(output, name='output')
+        self.viewer.add_image(output, name=self.name)
 
 
-class SmoothingWidget(QWidget):
+class SmoothingGroup(QGroupBox):
     # (15.11.2024)
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setTitle('Smoothing')
         self.setVisible(False)
+        self.setStyleSheet('QGroupBox {background-color: cyan; ' \
+            'border-radius: 10px}')
+        self.viewer = parent.viewer
+        self.parent = parent
+        self.index = 0          # layer index
+        self.name = ''          # layer[name]
 
-        # vbox and parameters for intensity normalization
+        # vbox and parameters for smoothing
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
-        vbox.addWidget(QLabel('Smoothing'))
-        button1 = QPushButton('Button 1')
-        vbox.addWidget(button1)
+        vbox.addWidget(QLabel('Image'))
+        self.image = QComboBox()
+        self.image.addItems(parent.layer_names)
+        self.image.currentIndexChanged.connect(self.image_changed)
+        vbox.addWidget(self.image)
 
-        vbox.addWidget(QLabel('Parameter 1'))
-        self.param1 = QLineEdit(self)
-        vbox.addWidget(self.param1)
+        vbox.addWidget(QLabel('Smoothing method'))
+        self.method = QComboBox()
+        self.method.addItems(['Gaussian', 'edge preserving'])
+        self.method.currentIndexChanged.connect(self.smoothing_method)
+        vbox.addWidget(self.method)
+
+        btn_run = QPushButton('run')
+        btn_run.clicked.connect(self.function_run)
+        vbox.addWidget(btn_run)
+
+    def image_changed(self, index: int):
+        # (19.11.2024)
+        self.index = index
+
+    def smoothing_method(self):
+        print('Method')
+
+    def function_run(self):
+        print('run')
 
 
 class mmv_playground(QWidget):
@@ -158,41 +184,41 @@ class mmv_playground(QWidget):
         # Button smoothing
         btn_smoothing = QPushButton('Smoothing')
         btn_smoothing.setCheckable(True)
-        btn_smoothing.clicked.connect(self.toggle_smoothing_widget)
+        btn_smoothing.clicked.connect(self.toggle_smoothing_group)
         vbox2.addWidget(btn_smoothing)
 
         # Smoothing widget
-        self.smoothing_widget = SmoothingWidget(self)
-        vbox2.addWidget(self.smoothing_widget)
+        self.smoothing_group = SmoothingGroup(self)
+        vbox2.addWidget(self.smoothing_group)
 
         # Button background correction
         btn_background = QPushButton('Background correction')
         btn_background.setCheckable(True)
-        # btn_background.clicked.connect(self.toggle_background_widget)
+        # btn_background.clicked.connect(self.toggle_background_group)
         vbox2.addWidget(btn_background)
 
         # Button spot-shape filter
         btn_spot_shape = QPushButton('Spot-shape filter')
         btn_spot_shape.setCheckable(True)
-        # btn_spot_shape.clicked.connect(self.toggle_spot_shape_widget)
+        # btn_spot_shape.clicked.connect(self.toggle_spot_shape_group)
         vbox2.addWidget(btn_spot_shape)
 
         # Button filament-shape filter
         btn_filament = QPushButton('Filament-shape filter')
         btn_filament.setCheckable(True)
-        # btn_filament.clicked.connect(self.toggle_filament_widget)
+        # btn_filament.clicked.connect(self.toggle_filament_group)
         vbox2.addWidget(btn_filament)
 
         # Button thresholding
         btn_thresholding = QPushButton('Thresholding')
         btn_thresholding.setCheckable(True)
-        # btn_thresholding.clicked.connect(self.toggle_thresholding_widget)
+        # btn_thresholding.clicked.connect(self.toggle_thresholding_group)
         vbox2.addWidget(btn_thresholding)
 
         # Button topology-preserving thinning
         btn_topology = QPushButton('Topology-preserving thinning')
         btn_topology.setCheckable(True)
-        # btn_topology.clicked.connect(self.toggle_smoothing_widget)
+        # btn_topology.clicked.connect(self.toggle_topology_group)
         vbox2.addWidget(btn_topology)
 
         # Create a list of layer names
@@ -213,13 +239,13 @@ class mmv_playground(QWidget):
         else:
             self.intensity_group.setVisible(True)
 
-    def toggle_smoothing_widget(self, checked: bool):
+    def toggle_smoothing_group(self, checked: bool):
         # Switching the visibility of the smoothing widget
         # (15.11.2024)
-        if self.smoothing_widget.isVisible():
-            self.smoothing_widget.setVisible(False)
+        if self.smoothing_group.isVisible():
+            self.smoothing_group.setVisible(False)
         else:
-            self.smoothing_widget.setVisible(True)
+            self.smoothing_group.setVisible(True)
 
     def find_layers(self, event: napari.utils.events.event.Event):
         # (19.11.2024)
@@ -232,6 +258,8 @@ class mmv_playground(QWidget):
         if self.init_ready:
             self.intensity_group.image.clear()
             self.intensity_group.image.addItems(lst)
+            self.smoothing_group.image.clear()
+            self.smoothing_group.image.addItems(lst)
 
     def connect_rename(self, event: napari.utils.events.event.Event):
         # (20.11.2024)
