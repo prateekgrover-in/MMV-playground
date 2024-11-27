@@ -4,6 +4,8 @@ tbd
 from typing import TYPE_CHECKING
 
 import numpy as np
+from scipy.ndimage import gaussian_filter
+import itk
 import napari
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
@@ -13,6 +15,7 @@ from qtpy.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSlider,
     QVBoxLayout,
     QWidget,
@@ -28,24 +31,24 @@ class IntensityGroup(QGroupBox):
         super().__init__(parent)
         self.setTitle('Intensity normalization')
         self.setVisible(False)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.setStyleSheet('QGroupBox {background-color: blue; ' \
             'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
+        self.name = ''          # layer[name]
         self.lower_percentage = 0.0
         self.upper_percentage = 100.0
-        self.index = 0          # layer index
-        self.name = ''          # layer[name]
 
         # layout and parameters for intensity normalization
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
-        vbox.addWidget(QLabel('Image'))
-        self.image = QComboBox()
-        self.image.addItems(parent.layer_names)
-        self.image.currentIndexChanged.connect(self.image_changed)
-        vbox.addWidget(self.image)
+        vbox.addWidget(QLabel('image'))
+        self.cbx_image = QComboBox()
+        self.cbx_image.addItems(parent.layer_names)
+        self.cbx_image.currentIndexChanged.connect(self.cbx_image_changed)
+        vbox.addWidget(self.cbx_image)
 
         self.lbl_lower = QLabel('lower percentage')
         vbox.addWidget(self.lbl_lower)
@@ -64,12 +67,12 @@ class IntensityGroup(QGroupBox):
         vbox.addWidget(upper)
 
         btn_run = QPushButton('run')
-        btn_run.clicked.connect(self.function_run)
+        btn_run.clicked.connect(self.run_intensity)
         vbox.addWidget(btn_run)
 
-    def image_changed(self, index: int):
+    def cbx_image_changed(self, index: int):
         # (19.11.2024)
-        self.index = index
+        self.name = self.parent.layer_names[index]
 
     def lower_changed(self, value: int):
         # (19.11.2024)
@@ -83,10 +86,8 @@ class IntensityGroup(QGroupBox):
         self.lbl_upper.setText('upper percentage: %.2f' % \
             (self.upper_percentage))
 
-    def function_run(self):
+    def run_intensity(self):
         # (22.11.2024)
-        self.name = self.parent.layer_names[self.index]
-
         if any(layer.name == self.name for layer in self.viewer.layers):
             layer = self.viewer.layers[self.name]
             input_image = layer.data
@@ -107,42 +108,83 @@ class SmoothingGroup(QGroupBox):
         super().__init__(parent)
         self.setTitle('Smoothing')
         self.setVisible(False)
-        self.setStyleSheet('QGroupBox {background-color: cyan; ' \
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.setStyleSheet('QGroupBox {background-color: blue; ' \
             'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
-        self.index = 0          # layer index
-        self.name = ''          # layer[name]
+        self.name = ''              # layer[name]
+        self.method = 'Gaussian'    # smoothing method
 
         # vbox and parameters for smoothing
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
         vbox.addWidget(QLabel('Image'))
-        self.image = QComboBox()
-        self.image.addItems(parent.layer_names)
-        self.image.currentIndexChanged.connect(self.image_changed)
-        vbox.addWidget(self.image)
+        self.cbx_image = QComboBox()
+        self.cbx_image.addItems(parent.layer_names)
+        self.cbx_image.currentIndexChanged.connect(self.cbx_image_changed)
+        vbox.addWidget(self.cbx_image)
 
         vbox.addWidget(QLabel('Smoothing method'))
-        self.method = QComboBox()
-        self.method.addItems(['Gaussian', 'edge preserving'])
-        self.method.currentIndexChanged.connect(self.smoothing_method)
-        vbox.addWidget(self.method)
+        self.cbx_method = QComboBox()
+        self.cbx_method.addItems(['Gaussian', 'edge-preserving'])
+        self.cbx_method.currentIndexChanged.connect(self.cbx_method_changed)
+        vbox.addWidget(self.cbx_method)
 
         btn_run = QPushButton('run')
-        btn_run.clicked.connect(self.function_run)
+        btn_run.clicked.connect(self.run_smoothing)
         vbox.addWidget(btn_run)
 
-    def image_changed(self, index: int):
+    def cbx_image_changed(self, index: int):
         # (19.11.2024)
-        self.index = index
+        self.name = self.parent.layer_names[index]
 
-    def smoothing_method(self):
-        print('Method')
+    def cbx_method_changed(self, index: int):
+        # (27.11.2024)
+        if index == 0:
+            self.method = 'Gaussian'
+        elif index == 1:
+            self.method = 'edge-preserving'
+        else:
+            self.method = 'unknown method'
 
-    def function_run(self):
-        print('run')
+    def run_smoothing(self):
+        # (27.11.2024)
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
+            input_image = layer.data
+        else:
+            print('Error: The image %s don\'t exist!' % (self.name))
+            return
+
+        if self.method == 'Gaussian':
+            output = gaussian_filter(input_image, sigma=1.0)
+        elif self.method == 'edge-preserving':
+            itk_img = itk.GetImageFromArray(input_image.astype(np.float32))
+
+            # set spacing
+            itk_img.SetSpacing([1, 1])
+
+            # define the filter
+            gradientAnisotropicDiffusionFilter = \
+                itk.GradientAnisotropicDiffusionImageFilter.New(itk_img)
+
+            gradientAnisotropicDiffusionFilter.SetNumberOfIterations(10)
+            gradientAnisotropicDiffusionFilter.SetTimeStep(0.125)
+            gradientAnisotropicDiffusionFilter.SetConductanceParameter(1.2)
+            gradientAnisotropicDiffusionFilter.Update()
+
+            # run the filter
+            itk_image_smooth = gradientAnisotropicDiffusionFilter.GetOutput()
+
+            # extract the ouptut array
+            output = itk.GetArrayFromImage(itk_image_smooth)
+        else:
+            print('Error: unknown method %s' % self.method)
+            return
+
+        self.viewer.add_image(output, name=self.name)
 
 
 class mmv_playground(QWidget):
@@ -256,10 +298,10 @@ class mmv_playground(QWidget):
         self.layer_names = lst
 
         if self.init_ready:
-            self.intensity_group.image.clear()
-            self.intensity_group.image.addItems(lst)
-            self.smoothing_group.image.clear()
-            self.smoothing_group.image.addItems(lst)
+            self.intensity_group.cbx_image.clear()
+            self.intensity_group.cbx_image.addItems(lst)
+            self.smoothing_group.cbx_image.clear()
+            self.smoothing_group.cbx_image.addItems(lst)
 
     def connect_rename(self, event: napari.utils.events.event.Event):
         # (20.11.2024)
