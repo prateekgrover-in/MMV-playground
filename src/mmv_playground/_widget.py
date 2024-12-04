@@ -48,7 +48,7 @@ class IntensityNormalization(QGroupBox):
         vbox.addWidget(QLabel('image'))
         self.cbx_image = QComboBox()
         self.cbx_image.addItems(parent.layer_names)
-        self.cbx_image.currentIndexChanged.connect(self.cbx_image_changed)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
 
         self.lbl_lower = QLabel('lower percentage')
@@ -56,7 +56,7 @@ class IntensityNormalization(QGroupBox):
         sld_lower = QSlider(Qt.Horizontal)
         sld_lower.setRange(0, 500)
         sld_lower.setSingleStep(1)
-        sld_lower.valueChanged.connect(self.sld_lower_changed)
+        sld_lower.valueChanged.connect(self.lower_changed)
         vbox.addWidget(sld_lower)
 
         self.lbl_upper = QLabel('Upper percentage')
@@ -64,26 +64,26 @@ class IntensityNormalization(QGroupBox):
         sld_upper = QSlider(Qt.Horizontal)
         sld_upper.setRange(9500, 10000)
         sld_upper.setSingleStep(1)
-        sld_upper.valueChanged.connect(self.sld_upper_changed)
+        sld_upper.valueChanged.connect(self.upper_changed)
         vbox.addWidget(sld_upper)
 
         btn_run = QPushButton('run')
         btn_run.clicked.connect(self.run_intensity_normalization)
         vbox.addWidget(btn_run)
 
-    def cbx_image_changed(self, index: int):
+    def image_changed(self, index: int):
         # (19.11.2024)
         self.name = self.parent.layer_names[index]
 
-    def sld_lower_changed(self, value: int):
+    def lower_changed(self, value: int):
         # (19.11.2024)
-        self.lower_percentage = value / 100.0
+        self.lower_percentage = float(value) / 100.0
         self.lbl_lower.setText('lower percentage: %.2f' % \
             (self.lower_percentage))
 
-    def sld_upper_changed(self, value: int):
+    def upper_changed(self, value: int):
         # (19.11.2024)
-        self.upper_percentage = value / 100.0
+        self.upper_percentage = float(value) / 100.0
         self.lbl_upper.setText('upper percentage: %.2f' % \
             (self.upper_percentage))
 
@@ -104,7 +104,7 @@ class IntensityNormalization(QGroupBox):
 
 
 class Smoothing(QGroupBox):
-    # (15.11.2024)
+    # (26.11.2024)
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle('Smoothing')
@@ -124,24 +124,24 @@ class Smoothing(QGroupBox):
         vbox.addWidget(QLabel('Image'))
         self.cbx_image = QComboBox()
         self.cbx_image.addItems(parent.layer_names)
-        self.cbx_image.currentIndexChanged.connect(self.cbx_image_changed)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
 
         vbox.addWidget(QLabel('Smoothing method'))
         self.cbx_method = QComboBox()
         self.cbx_method.addItems(['Gaussian', 'edge-preserving'])
-        self.cbx_method.currentIndexChanged.connect(self.cbx_method_changed)
+        self.cbx_method.currentIndexChanged.connect(self.method_changed)
         vbox.addWidget(self.cbx_method)
 
         btn_run = QPushButton('run')
         btn_run.clicked.connect(self.run_smoothing)
         vbox.addWidget(btn_run)
 
-    def cbx_image_changed(self, index: int):
+    def image_changed(self, index: int):
         # (19.11.2024)
         self.name = self.parent.layer_names[index]
 
-    def cbx_method_changed(self, index: int):
+    def method_changed(self, index: int):
         # (27.11.2024)
         if index == 0:
             self.method = 'Gaussian'
@@ -209,29 +209,29 @@ class BackgroundCorrection(QGroupBox):
         vbox.addWidget(QLabel('Image'))
         self.cbx_image = QComboBox()
         self.cbx_image.addItems(parent.layer_names)
-        self.cbx_image.currentIndexChanged.connect(self.cbx_image_changed)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
 
-        self.lbl_kernel = QLabel('Kernel size')
-        vbox.addWidget(self.lbl_kernel)
-        sld_kernel = QSlider(Qt.Horizontal)
-        sld_kernel.setRange(0, 100)
-        sld_kernel.setSingleStep(1)
-        sld_kernel.valueChanged.connect(self.sld_kernel_changed)
-        vbox.addWidget(sld_kernel)
+        self.lbl_kernel_size = QLabel('Kernel size')
+        vbox.addWidget(self.lbl_kernel_size)
+        sld_kernel_size = QSlider(Qt.Horizontal)
+        sld_kernel_size.setRange(0, 100)
+        sld_kernel_size.setSingleStep(1)
+        sld_kernel_size.valueChanged.connect(self.kernel_size_changed)
+        vbox.addWidget(sld_kernel_size)
 
         btn_run = QPushButton('run')
         btn_run.clicked.connect(self.run_background_correction)
         vbox.addWidget(btn_run)
 
-    def cbx_image_changed(self, index: int):
+    def image_changed(self, index: int):
         # (19.11.2024)
         self.name = self.parent.layer_names[index]
 
-    def sld_kernel_changed(self, value: int):
+    def kernel_size_changed(self, value: int):
         # (28.11.2024)
         self.kernel_size = value
-        self.lbl_kernel.setText('Kernel size: %d' % (value))
+        self.lbl_kernel_size.setText('Kernel size: %d' % (value))
 
     def run_background_correction(self):
         # (28.11.2024)
@@ -243,6 +243,64 @@ class BackgroundCorrection(QGroupBox):
             return
 
         output = white_tophat(input_image, disk(self.kernel_size))
+        self.viewer.add_image(output, name=self.name)
+
+
+class SpotShapeFilter(QGroupBox):
+    # (04.12.2024)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle('spot-shape filter')
+        self.setVisible(False)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.setStyleSheet('QGroupBox {background-color: blue; ' \
+            'border-radius: 10px}')
+        self.viewer = parent.viewer
+        self.parent = parent
+        self.name = ''              # layer[name]
+        self.sigma = 0.5
+
+        # vbox and parameters for smoothing
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+
+        vbox.addWidget(QLabel('Image'))
+        self.cbx_image = QComboBox()
+        self.cbx_image.addItems(parent.layer_names)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
+        vbox.addWidget(self.cbx_image)
+
+        self.lbl_sigma = QLabel('sigma')
+        vbox.addWidget(self.lbl_sigma)
+        sld_sigma = QSlider(Qt.Horizontal)
+        sld_sigma.setRange(5, 100)
+        sld_sigma.setSingleStep(5)
+        sld_sigma.valueChanged.connect(self.sigma_changed)
+        vbox.addWidget(sld_sigma)
+
+        btn_run = QPushButton('run')
+        btn_run.clicked.connect(self.run_spot_shape_filter)
+        vbox.addWidget(btn_run)
+
+    def image_changed(self, index: int):
+        # (19.11.2024)
+        self.name = self.parent.layer_names[index]
+
+    def sigma_changed(self, value: int):
+        # (28.11.2024)
+        self.sigma = float(value) / 10.0
+        self.lbl_sigma.setText('sigma: %.1f' % (self.sigma))
+
+    def run_spot_shape_filter(self):
+        # (28.11.2024)
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
+            input_image = layer.data
+        else:
+            print('Error: The image %s don\'t exist!' % (self.name))
+            return
+
+        output = -1.0 * (self.sigma**2) * gaussian_laplace(input_image, sigma)
         self.viewer.add_image(output, name=self.name)
 
 
@@ -278,7 +336,7 @@ class mmv_playground(QWidget):
         self.btn_intensity.clicked.connect(self.toggle_intensity_normalization)
         vbox2.addWidget(self.btn_intensity)
 
-        # Intensity normalization group
+        # Intensity normalization
         self.intensity_normalization = IntensityNormalization(self)
         vbox2.addWidget(self.intensity_normalization)
 
@@ -288,7 +346,7 @@ class mmv_playground(QWidget):
         self.btn_smoothing.clicked.connect(self.toggle_smoothing)
         vbox2.addWidget(self.btn_smoothing)
 
-        # Smoothing group
+        # Smoothing
         self.smoothing = Smoothing(self)
         vbox2.addWidget(self.smoothing)
 
@@ -298,15 +356,19 @@ class mmv_playground(QWidget):
         self.btn_background.clicked.connect(self.toggle_background_correction)
         vbox2.addWidget(self.btn_background)
 
-        # Background group
+        # Background correction
         self.background_correction = BackgroundCorrection(self)
         vbox2.addWidget(self.background_correction)
 
         # Button spot-shape filter
-        self.btn_spot_shape = QPushButton('Spot-shape filter')
+        self.btn_spot_shape = QPushButton('spot-shape filter')
         self.btn_spot_shape.setCheckable(True)
-        # self.btn_spot_shape.clicked.connect(self.toggle_spot_shape_group)
+        self.btn_spot_shape.clicked.connect(self.toggle_spot_shape_filter)
         vbox2.addWidget(self.btn_spot_shape)
+
+        # spot-shape filter
+        self.spot_shape_filter = SpotShapeFilter(self)
+        vbox2.addWidget(self.spot_shape_filter)
 
         # Button filament-shape filter
         self.btn_filament = QPushButton('Filament-shape filter')
@@ -337,7 +399,7 @@ class mmv_playground(QWidget):
             layer.events.name.connect(self.find_layers)
 
     def toggle_intensity_normalization(self, checked: bool):
-        # Switching the visibility of the intensity normalization group
+        # Switching the visibility of the intensity normalization
         # (15.11.2024)
         if self.intensity_normalization.isVisible():
             self.intensity_normalization.setVisible(False)
@@ -347,7 +409,7 @@ class mmv_playground(QWidget):
             self.btn_intensity.setText('Hide intensity normalization')
 
     def toggle_smoothing(self, checked: bool):
-        # Switching the visibility of the smoothing group
+        # Switching the visibility of the smoothing
         # (15.11.2024)
         if self.smoothing.isVisible():
             self.smoothing.setVisible(False)
@@ -357,7 +419,7 @@ class mmv_playground(QWidget):
             self.btn_smoothing.setText('Hide smoothing')
 
     def toggle_background_correction(self, checked: bool):
-        # Switching the visibility of the background correction group
+        # Switching the visibility of the background correction
         # (28.11.2024)
         if self.background_correction.isVisible():
             self.background_correction.setVisible(False)
@@ -365,6 +427,16 @@ class mmv_playground(QWidget):
         else:
             self.background_correction.setVisible(True)
             self.btn_background.setText('Hide background correction')
+
+    def toggle_spot_shape_filter(self, checked: bool):
+        # Switching the visibility of the spot-shape filter
+        # (04.12.2024)
+        if self.spot_shape_filter.isVisible():
+            self.spot_shape_filter.setVisible(False)
+            self.btn_spot_shape.setText('spot-shape filter')
+        else:
+            self.spot_shape_filter.setVisible(True)
+            self.btn_spot_shape.setText('Hide spot-shape filter')
 
     def find_layers(self, event: napari.utils.events.event.Event):
         # (19.11.2024)
@@ -381,6 +453,8 @@ class mmv_playground(QWidget):
             self.smoothing.cbx_image.addItems(lst)
             self.background_correction.cbx_image.clear()
             self.background_correction.cbx_image.addItems(lst)
+            self.spot_shape_filter.cbx_image.clear()
+            self.spot_shape_filter.cbx_image.addItems(lst)
 
     def connect_rename(self, event: napari.utils.events.event.Event):
         # (20.11.2024)

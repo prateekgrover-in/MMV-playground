@@ -82,3 +82,8 @@ venv/
 
 # written by setuptools_scm
 **/_version.py
+
+# my personal odds and ends
+Backup/
+Data/
+/playground.docx.lnk
