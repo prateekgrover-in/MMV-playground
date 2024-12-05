@@ -51,21 +51,19 @@ class IntensityNormalization(QGroupBox):
         self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
 
-        self.lbl_lower = QLabel('lower percentage')
-        vbox.addWidget(self.lbl_lower)
-        sld_lower = QSlider(Qt.Horizontal)
-        sld_lower.setRange(0, 500)
-        sld_lower.setSingleStep(1)
-        sld_lower.valueChanged.connect(self.lower_changed)
-        vbox.addWidget(sld_lower)
+        self.lbl_lower_percentage = QLabel('lower percentage: 0.00')
+        vbox.addWidget(self.lbl_lower_percentage)
+        sld_lower_percentage = QSlider(Qt.Horizontal)
+        sld_lower_percentage.setRange(0, 500)
+        sld_lower_percentage.valueChanged.connect(self.lower_changed)
+        vbox.addWidget(sld_lower_percentage)
 
-        self.lbl_upper = QLabel('Upper percentage')
-        vbox.addWidget(self.lbl_upper)
-        sld_upper = QSlider(Qt.Horizontal)
-        sld_upper.setRange(9500, 10000)
-        sld_upper.setSingleStep(1)
-        sld_upper.valueChanged.connect(self.upper_changed)
-        vbox.addWidget(sld_upper)
+        self.lbl_upper_percentage = QLabel('Upper percentage: 95.00')
+        vbox.addWidget(self.lbl_upper_percentage)
+        sld_upper_percentage = QSlider(Qt.Horizontal)
+        sld_upper_percentage.setRange(9500, 10000)
+        sld_upper_percentage.valueChanged.connect(self.upper_changed)
+        vbox.addWidget(sld_upper_percentage)
 
         btn_run = QPushButton('run')
         btn_run.clicked.connect(self.run_intensity_normalization)
@@ -78,13 +76,13 @@ class IntensityNormalization(QGroupBox):
     def lower_changed(self, value: int):
         # (19.11.2024)
         self.lower_percentage = float(value) / 100.0
-        self.lbl_lower.setText('lower percentage: %.2f' % \
+        self.lbl_lower_percentage.setText('lower percentage: %.2f' % \
             (self.lower_percentage))
 
     def upper_changed(self, value: int):
         # (19.11.2024)
         self.upper_percentage = float(value) / 100.0
-        self.lbl_upper.setText('upper percentage: %.2f' % \
+        self.lbl_upper_percentage.setText('upper percentage: %.2f' % \
             (self.upper_percentage))
 
     def run_intensity_normalization(self):
@@ -206,7 +204,7 @@ class BackgroundCorrection(QGroupBox):
         self.viewer = parent.viewer
         self.parent = parent
         self.name = ''              # layer[name]
-        self.kernel_size = 0
+        self.kernel_size = 1
 
         # vbox and parameters for smoothing
         vbox = QVBoxLayout()
@@ -218,11 +216,10 @@ class BackgroundCorrection(QGroupBox):
         self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
 
-        self.lbl_kernel_size = QLabel('Kernel size')
+        self.lbl_kernel_size = QLabel('Kernel size: 1')
         vbox.addWidget(self.lbl_kernel_size)
         sld_kernel_size = QSlider(Qt.Horizontal)
-        sld_kernel_size.setRange(0, 100)
-        sld_kernel_size.setSingleStep(1)
+        sld_kernel_size.setRange(1, 100)
         sld_kernel_size.valueChanged.connect(self.kernel_size_changed)
         vbox.addWidget(sld_kernel_size)
 
@@ -279,11 +276,10 @@ class SpotShapeFilter(QGroupBox):
         self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
 
-        self.lbl_sigma = QLabel('sigma')
+        self.lbl_sigma = QLabel('sigma: 0.5')
         vbox.addWidget(self.lbl_sigma)
         sld_sigma = QSlider(Qt.Horizontal)
         sld_sigma.setRange(1, 20)
-        # sld_sigma.setSingleStep(1)
         sld_sigma.valueChanged.connect(self.sigma_changed)
         vbox.addWidget(sld_sigma)
 
@@ -315,6 +311,20 @@ class SpotShapeFilter(QGroupBox):
         output = -1.0 * (self.sigma**2) * gaussian_laplace(input_image, \
             self.sigma)
         self.viewer.add_image(output, name=self.name)
+
+
+class FilamentShapeFilter(QGroupBox):
+    # (05.12.2024)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle('filament-shape filter')
+        self.setVisible(False)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.setStyleSheet('QGroupBox {background-color: blue; ' \
+            'border-radius: 10px}')
+        self.viewer = parent.viewer
+        self.parent = parent
+        self.name = ''              # layer[name]
 
 
 class mmv_playground(QWidget):
@@ -384,21 +394,25 @@ class mmv_playground(QWidget):
         vbox2.addWidget(self.spot_shape_filter)
 
         # Button filament-shape filter
-        self.btn_filament = QPushButton('Filament-shape filter')
-        self.btn_filament.setCheckable(True)
-        # self.btn_filament.clicked.connect(self.toggle_filament_group)
-        vbox2.addWidget(self.btn_filament)
+        self.btn_filament_shape = QPushButton('Filament-shape filter')
+        self.btn_filament_shape.setCheckable(True)
+        self.btn_filament_shape.clicked.connect(self.toggle_filament_shape_filter)
+        vbox2.addWidget(self.btn_filament_shape)
+
+        # filament-shape filter
+        self.filament_shape_filter = FilamentShapeFilter(self)
+        vbox2.addWidget(self.filament_shape_filter)
 
         # Button thresholding
         self.btn_thresholding = QPushButton('Thresholding')
         self.btn_thresholding.setCheckable(True)
-        # self.btn_thresholding.clicked.connect(self.toggle_thresholding_group)
+        # self.btn_thresholding.clicked.connect(self.toggle_thresholding)
         vbox2.addWidget(self.btn_thresholding)
 
         # Button topology-preserving thinning
         self.btn_topology = QPushButton('Topology-preserving thinning')
         self.btn_topology.setCheckable(True)
-        # self.btn_topology.clicked.connect(self.toggle_topology_group)
+        # self.btn_topology.clicked.connect(self.toggle_topology)
         vbox2.addWidget(self.btn_topology)
 
         # Create a list of layer names
@@ -450,6 +464,16 @@ class mmv_playground(QWidget):
         else:
             self.spot_shape_filter.setVisible(True)
             self.btn_spot_shape.setText('Hide spot-shape filter')
+
+    def toggle_filament_shape_filter(self, checked: bool):
+        # Switching the visibility of the filament-shape filter
+        # (05.12.2024)
+        if self.filament_shape_filter.isVisible():
+            self.filament_shape_filter.setVisible(False)
+            self.btn_filament_shape.setText('filament-shape filter')
+        else:
+            self.filament_shape_filter.setVisible(True)
+            self.btn_filament_shape.setText('Hide filament-shape filter')
 
     def find_layers(self, event: napari.utils.events.event.Event):
         # (19.11.2024)
