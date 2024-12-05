@@ -4,7 +4,7 @@ tbd
 from typing import TYPE_CHECKING
 
 import numpy as np
-from scipy.ndimage import gaussian_filter
+from scipy.ndimage import gaussian_filter, gaussian_laplace
 import itk
 from skimage.morphology import white_tophat, disk
 import napari
@@ -89,6 +89,9 @@ class IntensityNormalization(QGroupBox):
 
     def run_intensity_normalization(self):
         # (22.11.2024)
+        if self.name == '':
+            self.image_changed(0)
+
         if any(layer.name == self.name for layer in self.viewer.layers):
             layer = self.viewer.layers[self.name]
             input_image = layer.data
@@ -152,6 +155,9 @@ class Smoothing(QGroupBox):
 
     def run_smoothing(self):
         # (27.11.2024)
+        if self.name == '':
+            self.image_changed(0)
+
         if any(layer.name == self.name for layer in self.viewer.layers):
             layer = self.viewer.layers[self.name]
             input_image = layer.data
@@ -235,6 +241,9 @@ class BackgroundCorrection(QGroupBox):
 
     def run_background_correction(self):
         # (28.11.2024)
+        if self.name == '':
+            self.image_changed(0)
+
         if any(layer.name == self.name for layer in self.viewer.layers):
             layer = self.viewer.layers[self.name]
             input_image = layer.data
@@ -273,8 +282,8 @@ class SpotShapeFilter(QGroupBox):
         self.lbl_sigma = QLabel('sigma')
         vbox.addWidget(self.lbl_sigma)
         sld_sigma = QSlider(Qt.Horizontal)
-        sld_sigma.setRange(5, 100)
-        sld_sigma.setSingleStep(5)
+        sld_sigma.setRange(1, 20)
+        # sld_sigma.setSingleStep(1)
         sld_sigma.valueChanged.connect(self.sigma_changed)
         vbox.addWidget(sld_sigma)
 
@@ -288,11 +297,14 @@ class SpotShapeFilter(QGroupBox):
 
     def sigma_changed(self, value: int):
         # (28.11.2024)
-        self.sigma = float(value) / 10.0
+        self.sigma = float(value) * 0.5
         self.lbl_sigma.setText('sigma: %.1f' % (self.sigma))
 
     def run_spot_shape_filter(self):
         # (28.11.2024)
+        if self.name == '':
+            self.image_changed(0)
+
         if any(layer.name == self.name for layer in self.viewer.layers):
             layer = self.viewer.layers[self.name]
             input_image = layer.data
@@ -300,7 +312,8 @@ class SpotShapeFilter(QGroupBox):
             print('Error: The image %s don\'t exist!' % (self.name))
             return
 
-        output = -1.0 * (self.sigma**2) * gaussian_laplace(input_image, sigma)
+        output = -1.0 * (self.sigma**2) * gaussian_laplace(input_image, \
+            self.sigma)
         self.viewer.add_image(output, name=self.name)
 
 
