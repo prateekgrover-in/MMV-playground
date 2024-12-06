@@ -3,11 +3,12 @@ tbd
 """
 from typing import TYPE_CHECKING
 
+import itk
+import napari
 import numpy as np
 from scipy.ndimage import gaussian_filter, gaussian_laplace
-import itk
+from aicssegmentation.core.vessel import vesselness2D
 from skimage.morphology import white_tophat, disk
-import napari
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
@@ -325,6 +326,52 @@ class FilamentShapeFilter(QGroupBox):
         self.viewer = parent.viewer
         self.parent = parent
         self.name = ''              # layer[name]
+        self.sigma = 0.25
+
+        # vbox and parameters for smoothing
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+
+        vbox.addWidget(QLabel('Image'))
+        self.cbx_image = QComboBox()
+        self.cbx_image.addItems(parent.layer_names)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
+        vbox.addWidget(self.cbx_image)
+
+        self.lbl_sigma = QLabel('sigma: 0.25')
+        vbox.addWidget(self.lbl_sigma)
+        sld_sigma = QSlider(Qt.Horizontal)
+        sld_sigma.setRange(1, 20)
+        sld_sigma.valueChanged.connect(self.sigma_changed)
+        vbox.addWidget(sld_sigma)
+
+        btn_run = QPushButton('run')
+        btn_run.clicked.connect(self.run_filament_shape_filter)
+        vbox.addWidget(btn_run)
+
+    def image_changed(self, index: int):
+        # (19.11.2024)
+        self.name = self.parent.layer_names[index]
+
+    def sigma_changed(self, value: int):
+        # (28.11.2024)
+        self.sigma = float(value) * 0.25
+        self.lbl_sigma.setText('sigma: %.2f' % (self.sigma))
+
+    def run_filament_shape_filter(self):
+        # (06.12.2024)
+        if self.name == '':
+            self.image_changed(0)
+
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
+            input_image = layer.data
+        else:
+            print('Error: The image %s don\'t exist!' % (self.name))
+            return
+
+        output = vesselness2D(input_image, sigmas=[self.sigma])
+        self.viewer.add_image(output, name=self.name)
 
 
 class mmv_playground(QWidget):
@@ -492,6 +539,8 @@ class mmv_playground(QWidget):
             self.background_correction.cbx_image.addItems(lst)
             self.spot_shape_filter.cbx_image.clear()
             self.spot_shape_filter.cbx_image.addItems(lst)
+            self.filament_shape_filter.cbx_image.clear()
+            self.filament_shape_filter.cbx_image.addItems(lst)
 
     def connect_rename(self, event: napari.utils.events.event.Event):
         # (20.11.2024)
