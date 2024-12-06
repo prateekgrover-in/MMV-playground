@@ -374,6 +374,34 @@ class FilamentShapeFilter(QGroupBox):
         self.viewer.add_image(output, name=self.name)
 
 
+class Thresholding(QGroupBox):
+    # (05.12.2024)
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle('Thresholding')
+        self.setVisible(False)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.setStyleSheet('QGroupBox {background-color: blue; ' \
+            'border-radius: 10px}')
+        self.viewer = parent.viewer
+        self.parent = parent
+        self.name = ''              # layer[name]
+
+        # vbox and parameters for smoothing
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+
+        vbox.addWidget(QLabel('Image'))
+        self.cbx_image = QComboBox()
+        self.cbx_image.addItems(parent.layer_names)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
+        vbox.addWidget(self.cbx_image)
+
+    def image_changed(self, index: int):
+        # (19.11.2024)
+        self.name = self.parent.layer_names[index]
+
+
 class mmv_playground(QWidget):
     # (15.11.2024)
     def __init__(self, viewer: "napari.viewer.Viewer"):
@@ -453,8 +481,12 @@ class mmv_playground(QWidget):
         # Button thresholding
         self.btn_thresholding = QPushButton('Thresholding')
         self.btn_thresholding.setCheckable(True)
-        # self.btn_thresholding.clicked.connect(self.toggle_thresholding)
+        self.btn_thresholding.clicked.connect(self.toggle_thresholding)
         vbox2.addWidget(self.btn_thresholding)
+
+        # Thresholding
+        self.thresholding = Thresholding(self)
+        vbox2.addWidget(self.thresholding)
 
         # Button topology-preserving thinning
         self.btn_topology = QPushButton('Topology-preserving thinning')
@@ -522,6 +554,16 @@ class mmv_playground(QWidget):
             self.filament_shape_filter.setVisible(True)
             self.btn_filament_shape.setText('Hide filament-shape filter')
 
+    def toggle_thresholding(self, checked: bool):
+        # Switching the visibility of the thresholding
+        # (05.12.2024)
+        if self.thresholding.isVisible():
+            self.thresholding.setVisible(False)
+            self.btn_thresholding.setText('Thresholding')
+        else:
+            self.thresholding.setVisible(True)
+            self.btn_thresholding.setText('Hide thresholding')
+
     def find_layers(self, event: napari.utils.events.event.Event):
         # (19.11.2024)
         lst = []
@@ -541,6 +583,8 @@ class mmv_playground(QWidget):
             self.spot_shape_filter.cbx_image.addItems(lst)
             self.filament_shape_filter.cbx_image.clear()
             self.filament_shape_filter.cbx_image.addItems(lst)
+            self.thresholding.cbx_image.clear()
+            self.thresholding.cbx_image.addItems(lst)
 
     def connect_rename(self, event: napari.utils.events.event.Event):
         # (20.11.2024)
