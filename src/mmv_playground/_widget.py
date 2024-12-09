@@ -8,6 +8,8 @@ import napari
 import numpy as np
 from scipy.ndimage import gaussian_filter, gaussian_laplace
 from aicssegmentation.core.vessel import vesselness2D
+from skimage.filters import threshold_li, threshold_otsu, threshold_sauvola, \
+    threshold_triangle
 from skimage.morphology import white_tophat, disk
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
@@ -28,7 +30,7 @@ if TYPE_CHECKING:
 
 
 class IntensityNormalization(QGroupBox):
-    # (15.11.2024)
+    # (15.11.2024) Function 1
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle('Intensity normalization')
@@ -38,7 +40,7 @@ class IntensityNormalization(QGroupBox):
             'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
-        self.name = ''          # layer[name]
+        self.name = ''          # layer.name
         self.lower_percentage = 0.0
         self.upper_percentage = 95.0
 
@@ -106,7 +108,7 @@ class IntensityNormalization(QGroupBox):
 
 
 class Smoothing(QGroupBox):
-    # (26.11.2024)
+    # (26.11.2024) Function 2
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle('Smoothing')
@@ -116,7 +118,7 @@ class Smoothing(QGroupBox):
             'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
-        self.name = ''              # layer[name]
+        self.name = ''              # layer.name
         self.method = 'Gaussian'    # smoothing method
 
         # vbox and parameters for smoothing
@@ -194,7 +196,7 @@ class Smoothing(QGroupBox):
 
 
 class BackgroundCorrection(QGroupBox):
-    # (28.11.2024)
+    # (28.11.2024) Function 3
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle('Background correction')
@@ -204,10 +206,10 @@ class BackgroundCorrection(QGroupBox):
             'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
-        self.name = ''              # layer[name]
+        self.name = ''              # layer.name
         self.kernel_size = 1
 
-        # vbox and parameters for smoothing
+        # vbox and parameters for background correction
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
@@ -254,7 +256,7 @@ class BackgroundCorrection(QGroupBox):
 
 
 class SpotShapeFilter(QGroupBox):
-    # (04.12.2024)
+    # (04.12.2024) Function 4
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle('spot-shape filter')
@@ -264,10 +266,10 @@ class SpotShapeFilter(QGroupBox):
             'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
-        self.name = ''              # layer[name]
+        self.name = ''              # layer.name
         self.sigma = 0.5
 
-        # vbox and parameters for smoothing
+        # vbox and parameters for spot-shape filter
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
@@ -315,7 +317,7 @@ class SpotShapeFilter(QGroupBox):
 
 
 class FilamentShapeFilter(QGroupBox):
-    # (05.12.2024)
+    # (05.12.2024) Function 5
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle('filament-shape filter')
@@ -325,10 +327,10 @@ class FilamentShapeFilter(QGroupBox):
             'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
-        self.name = ''              # layer[name]
+        self.name = ''              # layer.name
         self.sigma = 0.25
 
-        # vbox and parameters for smoothing
+        # vbox and parameters for filament-shape filter
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
@@ -375,7 +377,7 @@ class FilamentShapeFilter(QGroupBox):
 
 
 class Thresholding(QGroupBox):
-    # (05.12.2024)
+    # (06.12.2024) Function 6
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setTitle('Thresholding')
@@ -385,9 +387,10 @@ class Thresholding(QGroupBox):
             'border-radius: 10px}')
         self.viewer = parent.viewer
         self.parent = parent
-        self.name = ''              # layer[name]
+        self.name = ''              # layer.name
+        self.method = 'Otsu'
 
-        # vbox and parameters for smoothing
+        # vbox and parameters for thresholding
         vbox = QVBoxLayout()
         self.setLayout(vbox)
 
@@ -397,9 +400,59 @@ class Thresholding(QGroupBox):
         self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
 
+        vbox.addWidget(QLabel('Threshold method'))
+        self.cbx_method = QComboBox()
+        self.cbx_method.addItems(['Otsu', 'Li', 'Triangle', 'Sauvola'])
+        self.cbx_method.currentIndexChanged.connect(self.method_changed)
+        vbox.addWidget(self.cbx_method)
+
+        btn_run = QPushButton('run')
+        btn_run.clicked.connect(self.run_thresholding)
+        vbox.addWidget(btn_run)
+
     def image_changed(self, index: int):
         # (19.11.2024)
         self.name = self.parent.layer_names[index]
+
+    def method_changed(self, index: int):
+        # (09.12.2024)
+        if index == 0:
+            self.method = 'Otsu'
+        elif index == 1:
+            self.method = 'Li'
+        elif index == 2:
+            self.method = 'Triangle'
+        elif index == 3:
+            self.method = 'Sauvola'
+        else:
+            self.method = 'unknown method'
+
+    def run_thresholding(self):
+        # (09.12.2024)
+        if self.name == '':
+            self.image_changed(0)
+
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
+            input_image = layer.data
+        else:
+            print('Error: The image %s don\'t exist!' % (self.name))
+            return
+
+        if self.method == 'Otsu':
+            t_otsu = threshold_otsu(input_image)
+            output = input_image > t_otsu
+        if self.method == 'Li':
+            t_li = threshold_li(input_image)
+            output = input_image > t_li
+        if self.method == 'Triangle':
+            t_tri = threshold_triangle(input_image)
+            output = input_image > t_tri
+        if self.method == 'Sauvola':
+            t_local = threshold_sauvola(input_image)
+            output = input_image > t_local
+
+        self.viewer.add_image(output, name=self.name)
 
 
 class mmv_playground(QWidget):
