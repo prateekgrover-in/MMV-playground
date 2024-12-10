@@ -468,6 +468,8 @@ class TopologyPreservingThinning(QGroupBox):
         self.viewer = parent.viewer
         self.parent = parent
         self.name = ''              # layer.name
+        self.min_thickness = 0.5
+        self.thin = 1
 
         # vbox and parameters for thresholding
         vbox = QVBoxLayout()
@@ -479,10 +481,34 @@ class TopologyPreservingThinning(QGroupBox):
         self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
 
+        self.lbl_min_thickness = QLabel('minimum thickness: 0.5')
+        vbox.addWidget(self.lbl_min_thickness)
+        sld_min_thickness = QSlider(Qt.Horizontal)
+        sld_min_thickness.setRange(1, 10)
+        sld_min_thickness.valueChanged.connect(self.min_thickness_changed)
+        vbox.addWidget(sld_min_thickness)
+
+        self.lbl_thin = QLabel('thin: 1')
+        vbox.addWidget(self.lbl_thin)
+        sld_thin = QSlider(Qt.Horizontal)
+        sld_thin.setRange(1, 5)
+        sld_thin.valueChanged.connect(self.thin_changed)
+        vbox.addWidget(sld_thin)
+
     def image_changed(self, index: int):
         # (19.11.2024)
         self.name = self.parent.layer_names[index]
 
+    def min_thickness_changed(self, value: int):
+        # (10.12.2024)
+        self.min_thickness = float(value) * 0.5
+        self.lbl_min_thickness.setText('minimum thickness: %.1f' % \
+            (self.min_thickness))
+
+    def thin_changed(self, value: int):
+        # (10.12.2024)
+        self.thin = value
+        self.lbl_thin.setText('thin: %d' % (self.thin))
 
 
 class mmv_playground(QWidget):
