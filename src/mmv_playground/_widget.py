@@ -6,11 +6,12 @@ from typing import TYPE_CHECKING
 import itk
 import napari
 import numpy as np
-from scipy.ndimage import gaussian_filter, gaussian_laplace
+from scipy.ndimage import distance_transform_edt, gaussian_filter, \
+    gaussian_laplace
 from aicssegmentation.core.vessel import vesselness2D
 from skimage.filters import threshold_li, threshold_otsu, threshold_sauvola, \
     threshold_triangle
-from skimage.morphology import white_tophat, disk
+from skimage.morphology import disk, erosion, medial_axis, white_tophat
 from qtpy.QtCore import Qt
 from qtpy.QtWidgets import (
     QComboBox,
@@ -455,6 +456,88 @@ class Thresholding(QGroupBox):
         self.viewer.add_image(output, name=self.name)
 
 
+class TopologyPreservingThinning(QGroupBox):
+    # (09.12.2024) Function 7
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle('Topology-preserving thinning')
+        self.setVisible(False)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.setStyleSheet('QGroupBox {background-color: blue; ' \
+            'border-radius: 10px}')
+        self.viewer = parent.viewer
+        self.parent = parent
+        self.name = ''              # layer.name
+        self.min_thickness = 0.5
+        self.thin = 1
+
+        # vbox and parameters for thresholding
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+
+        vbox.addWidget(QLabel('Image'))
+        self.cbx_image = QComboBox()
+        self.cbx_image.addItems(parent.layer_names)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
+        vbox.addWidget(self.cbx_image)
+
+        self.lbl_min_thickness = QLabel('minimum thickness: 0.5')
+        vbox.addWidget(self.lbl_min_thickness)
+        sld_min_thickness = QSlider(Qt.Horizontal)
+        sld_min_thickness.setRange(1, 10)
+        sld_min_thickness.valueChanged.connect(self.min_thickness_changed)
+        vbox.addWidget(sld_min_thickness)
+
+        self.lbl_thin = QLabel('thin: 1')
+        vbox.addWidget(self.lbl_thin)
+        sld_thin = QSlider(Qt.Horizontal)
+        sld_thin.setRange(1, 5)
+        sld_thin.valueChanged.connect(self.thin_changed)
+        vbox.addWidget(sld_thin)
+
+        btn_run = QPushButton('run')
+        btn_run.clicked.connect(self.run_topology_preserving_thinning)
+        vbox.addWidget(btn_run)
+
+    def image_changed(self, index: int):
+        # (19.11.2024)
+        self.name = self.parent.layer_names[index]
+
+    def min_thickness_changed(self, value: int):
+        # (10.12.2024)
+        self.min_thickness = float(value) * 0.5
+        self.lbl_min_thickness.setText('minimum thickness: %.1f' % \
+            (self.min_thickness))
+
+    def thin_changed(self, value: int):
+        # (10.12.2024)
+        self.thin = value
+        self.lbl_thin.setText('thin: %d' % (self.thin))
+
+    def run_topology_preserving_thinning(self):
+        # (10.12.2024)
+        if self.name == '':
+            self.image_changed(0)
+
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
+            input_image = layer.data
+        else:
+            print('Error: The image %s don\'t exist!' % (self.name))
+            return
+
+        output = input_image > 0
+        safe_zone = np.zeros_like(output)
+        ctl = medial_axis(output > 0)
+        dist = distance_transform_edt(ctl == 0)
+        safe_zone = dist > self.min_thickness + 1e-5
+
+        rm_candidate = np.logical_xor(output, erosion(output, disk(self.thin)))
+        output[np.logical_and(safe_zone, rm_candidate)] = 0
+
+        self.viewer.add_image(output, name=self.name)
+
+
 class mmv_playground(QWidget):
     # (15.11.2024)
     def __init__(self, viewer: "napari.viewer.Viewer"):
@@ -542,10 +625,15 @@ class mmv_playground(QWidget):
         vbox2.addWidget(self.thresholding)
 
         # Button topology-preserving thinning
-        self.btn_topology = QPushButton('Topology-preserving thinning')
-        self.btn_topology.setCheckable(True)
-        # self.btn_topology.clicked.connect(self.toggle_topology)
-        vbox2.addWidget(self.btn_topology)
+        self.btn_topology_preserving = QPushButton('Topology-preserving thinning')
+        self.btn_topology_preserving.setCheckable(True)
+        self.btn_topology_preserving.clicked.connect( \
+            self.toggle_topology_preserving_thinning)
+        vbox2.addWidget(self.btn_topology_preserving)
+
+        # Topology-preserving thinning
+        self.topology_preserving_thinning = TopologyPreservingThinning(self)
+        vbox2.addWidget(self.topology_preserving_thinning)
 
         # Create a list of layer names
         self.init_ready = True      # all widgets are defined
@@ -617,6 +705,16 @@ class mmv_playground(QWidget):
             self.thresholding.setVisible(True)
             self.btn_thresholding.setText('Hide thresholding')
 
+    def toggle_topology_preserving_thinning(self, checked: bool):
+        # Switching the visibility of the topology-preserving thinning
+        # (09.12.2024)
+        if self.topology_preserving_thinning.isVisible():
+            self.topology_preserving_thinning.setVisible(False)
+            self.btn_topology_preserving.setText('Topology-preserving thinning')
+        else:
+            self.topology_preserving_thinning.setVisible(True)
+            self.btn_topology_preserving.setText('Hide topology-preserving thinning')
+
     def find_layers(self, event: napari.utils.events.event.Event):
         # (19.11.2024)
         lst = []
@@ -638,6 +736,8 @@ class mmv_playground(QWidget):
             self.filament_shape_filter.cbx_image.addItems(lst)
             self.thresholding.cbx_image.clear()
             self.thresholding.cbx_image.addItems(lst)
+            self.topology_preserving_thinning.cbx_image.clear()
+            self.topology_preserving_thinning.cbx_image.addItems(lst)
 
     def connect_rename(self, event: napari.utils.events.event.Event):
         # (20.11.2024)
