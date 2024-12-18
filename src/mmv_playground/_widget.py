@@ -495,6 +495,10 @@ class TopologyPreservingThinning(QGroupBox):
         sld_thin.valueChanged.connect(self.thin_changed)
         vbox.addWidget(sld_thin)
 
+        btn_run = QPushButton('run')
+        btn_run.clicked.connect(self.run_topology_preserving_thinning)
+        vbox.addWidget(btn_run)
+
     def image_changed(self, index: int):
         # (19.11.2024)
         self.name = self.parent.layer_names[index]
@@ -509,6 +513,29 @@ class TopologyPreservingThinning(QGroupBox):
         # (10.12.2024)
         self.thin = value
         self.lbl_thin.setText('thin: %d' % (self.thin))
+
+    def run_topology_preserving_thinning(self):
+        # (10.12.2024)
+        if self.name == '':
+            self.image_changed(0)
+
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
+            input_image = layer.data
+        else:
+            print('Error: The image %s don\'t exist!' % (self.name))
+            return
+
+        output = input_image > 0
+        safe_zone = np.zeros_like(output)
+        ctl = medial_axis(output > 0)
+        dist = distance_transform_edt(ctl == 0)
+        safe_zone = dist > self.min_thickness + 1e-5
+
+        rm_candidate = np.logical_xor(output, erosion(output, disk(self.thin)))
+        output[np.logical_and(safe_zone, rm_candidate)] = 0
+
+        self.viewer.add_image(output, name=self.name)
 
 
 class mmv_playground(QWidget):
