@@ -33,57 +33,94 @@ To install latest development version :
 
 ## Documentation
 
-This plugin for the graphics software Napari is designed to evaluate two-dimensional microscopy images. Images should be provided in grayscale format, as colored images are not supported. The plugin offers seven core functions for image analysis:
+This plugin for the graphics software Napari is designed to analyze two-dimensional microscopy images. Images should be provided in grayscale format, as colored images are not supported. The plugin includes seven core functions for image analysis:
 
-1. Intensity normalization
+1. Intensity normalization  
+2. Smoothing  
+3. Background correction  
+4. Spot-shape filter  
+5. Filament-shape filter  
+6. Thresholding  
+7. Topology-preserving thinning  
 
-2. Smoothing
+### **How to Start and Use the Plugin**
 
-3. Background correction
+To start the plugin, open Napari, go to the "Plugins" menu, and select "MMV-playground (MMV-playground)." The MMV-playground interface will appear on the right-hand side of the Napari window, displaying seven buttons, each corresponding to one of the available functions. Clicking a button opens a dialog box where you can select an image, adjust the parameters for the chosen function, and execute it by pressing the "Run" button. Clicking the function button again collapses the dialog box.
 
-4. Spot-shape filter
+### Screenshot
 
-5. Filament-shape filter
+Here is a preview of the MMV-playground plugin in action:
 
-6. Thresholding
+![MMV-playground Plugin Screenshot](docs/images/plugin_screenshot.png)
 
-7. Topology-preserving thinning
-   
-#### How is the plugin started and operated?
+---
 
-To start the plugin, open Napari, go to the "Plugins" menu, and select "MMV-playground (MMV-playground)". The MMV-playground interface will appear on the left side of the Napari window, displaying seven buttons - each corresponding to one of the available functions. Clicking a button opens a dialog box where you can select an image, adjust the parameters for the chosen function, and execute it by pressing the run button. Clicking the function button again collapses the dialog box.
+### **Intensity Normalization**
 
-#### Intensity normalization
+This function adjusts the image intensity to enhance contrast and improve uniformity. Two percentage values are required:  
+- *Lower percentage (0–5%)*: Defines the darkest portion of the image to ignore as background noise, which is set to a fixed value.  
+- *Upper percentage (95–100%)*: Specifies the brightest portion of the image to be capped, preventing overexposure.  
 
-Intensity normalization requires two percentage values: a lower percentage (0–5%) and an upper percentage (95–100%). The plugin calculates the corresponding percentiles for these values. Pixel intensities below the lower percentile are clipped to this value, and those above the upper percentile are clipped to the upper limit. Finally, the image intensities are rescaled to a range of 0 to 1.
+The plugin calculates the respective percentiles based on these values. Intensities below the lower percentile are clipped, and those above the upper percentile are also capped. Finally, all pixel intensities are rescaled to the range [0, 1].
 
-#### Smoothing
+---
 
-The smoothing function offers two methods: Gaussian smoothing and edge-preserving smoothing. The Gaussian method utilizes [scipy.ndimage.gaussian_filter](https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.gaussian_filter.html), while the edge-preserving method is implemented using [itk.GradientAnisotropicDiffusionImageFilter](https://itk.org/Doxygen/html/classitk_1_1GradientAnisotropicDiffusionImageFilter.html).
+### **Smoothing**
 
-#### Background correction
+This function reduces noise to enhance image clarity. Two methods are available:  
+- *Gaussian smoothing*  
+- *Edge-preserving smoothing*: Retains edges (e.g., cell boundaries) while reducing noise.  
 
-Background correction requires specifying a kernel size (range: 1–100). The function [scipy.ndimage.white_tophat](https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.white_tophat.html) is used to perform the correction based on the provided kernel size. This approach is particularly effective for images with a dark background.
+---
 
-#### Spot-shape filter
+### **Background Correction**
 
-The spot-shape filter detects edges using the [scipy.ndimage.gaussian_laplace](https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.gaussian_laplace.html) function. It requires a sigma parameter, which can be set between 0.5 and 10.
+This function removes uneven illumination or background artifacts using a filter. The key parameter is:  
+- *Kernel size (1–100)*: Determines the spatial scale of the background correction. Smaller kernel sizes remove local noise, while larger sizes correct for broader illumination variations.  
 
-#### Filament-shape filter
+The [scipy.ndimage.white_tophat] function is used to perform the correction, making this method effective for images with dark backgrounds.
 
-The filament-shape filter uses the [aicssegmentation.core.vessel.vesselness2D](https://allencell.org/segmenter.html) function, with a sigma parameter adjustable in the range of 0.25 to 5.
+---
 
-#### Thresholding
+### **Spot-Shape Filter**
 
-Thresholding allows users to select one of the following methods for determining the threshold: "Otsu," "Li," "Triangle," or "Sauvola." The output is a binary image where pixels above the threshold are set to 1, and all others are set to 0.
+This filter detects circular structures, such as cell nuclei or fluorescent spots. It is based on the [scipy.ndimage.gaussian_laplace] function and requires:  
+- *Sigma (σ)*: Controls the size of the spots to detect. Smaller sigma values target smaller spots, while larger values focus on larger structures.
 
-#### Topology-preserving thinning
+---
 
-The topology-preserving thinning function requires two parameters: "minimum thickness" (range: 0.5–5) and "thin" (range: 1–5).
+### **Filament-Shape Filter**
 
-#### What is missing
+This filter highlights elongated structures like cytoskeletal fibers or blood vessels. Using the [aicssegmentation.core.vessel.vesselness2D] function, the key parameter is:  
+- *Sigma (σ)*: Specifies the width of the detected filaments. Lower values detect thinner structures, while higher values identify thicker ones.
 
-Until now the unit tests are not ready. The internal documentation of the source code is also not ready now.
+---
+
+### **Thresholding**
+
+This function segments the image into binary regions by separating the signal from the background. Users can choose one of four thresholding methods:  
+- *Otsu*: Best for images with clear separation between background and signal intensities.  
+- *Li*: Suitable for uniformly illuminated images.  
+- *Triangle*: Effective for asymmetrical intensity distributions.  
+- *Sauvola*: Ideal for images with uneven illumination.  
+
+The result is a binary image where pixels above the threshold are set to 1 (signal), and all others are set to 0 (background).
+
+---
+
+### **Topology-Preserving Thinning**
+
+This function extracts the skeleton of structures while maintaining their connectivity. Two parameters are required:  
+- *Minimum thickness (0.5–5)*: Defines the smallest allowable thickness of structures before thinning.  
+- *Thin (1–5)*: Controls the degree of thinning, reducing structure width while preserving topology (e.g., network connections).  
+
+This is particularly useful for analyzing vascular or cellular networks.
+
+---
+
+### **What Is Missing?**
+
+Currently, unit tests are not implemented, and internal documentation of the source code is still in progress.
 
 ## Contributing
 
@@ -116,3 +153,9 @@ If you encounter any problems, please [file an issue] along with a detailed desc
 [tox]: https://tox.readthedocs.io/en/latest/
 [pip]: https://pypi.org/project/pip/
 [PyPI]: https://pypi.org/
+
+[scipy.ndimage.gaussian_filter]: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.gaussian_filter.html
+[itk.GradientAnisotropicDiffusionImageFilter]: https://itk.org/Doxygen/html/classitk_1_1GradientAnisotropicDiffusionImageFilter.html
+[scipy.ndimage.white_tophat]: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.white_tophat.html
+[scipy.ndimage.gaussian_laplace]: https://docs.scipy.org/doc/scipy/reference/generated/scipy.ndimage.gaussian_laplace.html
+[aicssegmentation.core.vessel.vesselness2D]: https://allencell.github.io/aics-segmentation/aicssegmentation.core.html
