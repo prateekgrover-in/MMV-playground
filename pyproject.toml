@@ -2,6 +2,8 @@
 name = "MMV-playground"
 dynamic = ["version"]
 description = "Napari plugin for 2D microscopy segmentation"
+long_description=open("README.md").read()
+long_description_content_type="text/markdown"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
@@ -25,10 +27,13 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
+    "aicssegmentation",
+    "itk",
+    "napari",
     "numpy",
-    "magicgui",
     "qtpy",
     "scikit-image",
+    "scipy"
 ]
 
 [project.optional-dependencies]
