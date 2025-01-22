@@ -2,8 +2,6 @@
 name = "MMV-playground"
 dynamic = ["version"]
 description = "Napari plugin for 2D microscopy segmentation"
-long_description="README.md"
-long_description_content_type="text/markdown"
 readme = "README.md"
 license = {file = "LICENSE"}
 authors = [
