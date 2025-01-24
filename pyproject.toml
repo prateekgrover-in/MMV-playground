@@ -25,7 +25,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "aicssegmentation @ https://pypi.org/simple/aicssegmentation",
+    "aicssegmentation",
     "itk",
     "napari",
     "numpy",
