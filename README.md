@@ -51,7 +51,7 @@ To start the plugin, open Napari, go to the "Plugins" menu, and select "MMV-play
 
 Here is a preview of the MMV-playground plugin in action:
 
-![MMV-playground Plugin Screenshot](docs/images/plugin_screenshot.png)
+![MMV-playground Plugin Screenshot](https://raw.githubusercontent.com/MMV-Lab/MMV-playground/main/docs/images/plugin_screenshot.png)
 
 ---
 
