@@ -43,6 +43,8 @@ This plugin for the graphics software Napari is designed to analyze two-dimensio
 6. Thresholding  
 7. Topology-preserving thinning  
 
+We provide an [introduction](https://raw.githubusercontent.com/MMV-Lab/MMV-playground/main/docs/introduction.md) to explain the different functions of this plugin.
+
 ### **How to Start and Use the Plugin**
 
 To start the plugin, open Napari, go to the "Plugins" menu, and select "MMV-playground (MMV-playground)." The MMV-playground interface will appear on the right-hand side of the Napari window, displaying seven buttons, each corresponding to one of the available functions. Clicking a button opens a dialog box where you can select an image, adjust the parameters for the chosen function, and execute it by pressing the "Run" button. Clicking the function button again collapses the dialog box.
