@@ -43,7 +43,7 @@ This plugin for the graphics software Napari is designed to analyze two-dimensio
 6. Thresholding  
 7. Topology-preserving thinning  
 
-We provide an [introduction](https://github.com/MMV-Lab/MMV-playground/main/docs/introduction.md) to explain the different functions of this plugin.
+We provide an [introduction](https://github.com/MMV-Lab/MMV-playground/blob/main/docs/introduction.md) to explain the different functions of this plugin.
 
 ### **How to Start and Use the Plugin**
 
