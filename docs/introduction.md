@@ -1,12 +1,12 @@
-<h2 style="text-align: center;">MMV_playground</h2>
+## MMV_playground
 
-<p style="text-align: center;"><b>Jianxu Chen</b><br>
-Microscopy Machine Vision Lab (MMV-Lab)<br>
-Leibniz-Institut für Analytische Wissenschaften – ISAS – e.V.<br>
-Bunsen-Kirchhoff-Str. 11, 44139 Dortmund, Germany</p>
+**Jianxu Chen**  
+[Microscopy Machine Vision Lab](https://mmv-lab.github.io/) (MMV-Lab)  
+[Leibniz-Institut für Analytische Wissenschaften](https://www.isas.de/) – ISAS – e.V.  
+Bunsen-Kirchhoff-Str. 11, 44139 Dortmund, Germany
 
 
-![Figure1]((https://raw.githubusercontent.com/MMV-Lab/MMV-playground/main/docs/images/figure1.png))
+![Figure1]((images/figure1.png))
 
 ### Basic information:
 
