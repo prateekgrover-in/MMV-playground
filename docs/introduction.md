@@ -6,7 +6,7 @@
 Bunsen-Kirchhoff-Str. 11, 44139 Dortmund, Germany
 
 
-![Figure1]((images/figure1.png))
+![Figure1](images/figure1.png)
 
 ### Basic information:
 
