@@ -29,6 +29,66 @@ from qtpy.QtWidgets import (
 if TYPE_CHECKING:
     import napari
 
+from stardist.models import StarDist2D
+
+# prints a list of available models
+StarDist2D.from_pretrained()
+
+# creates a pretrained model
+model = StarDist2D.from_pretrained('2D_versatile_fluo')
+
+from stardist.data import test_image_nuclei_2d
+from stardist.plot import render_label
+from csbdeep.utils import normalize
+
+class StardistSegmentation(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle('Stardist Segmentation')
+        self.setVisible(False)
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.setStyleSheet('QGroupBox {background-color: blue; ' \
+            'border-radius: 10px}')
+        self.viewer = parent.viewer
+        self.parent = parent
+        self.name = ''          # layer.name
+
+        # layout and parameters for intensity normalization
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+
+        vbox.addWidget(QLabel('image'))
+        self.cbx_image = QComboBox()
+        self.cbx_image.addItems(parent.layer_names)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
+        vbox.addWidget(self.cbx_image)
+
+        vbox.addWidget(QLabel('Segmentation method'))
+        self.cbx_method = QComboBox()
+        self.cbx_method.addItems(['Stardist'])
+        self.cbx_method.currentIndexChanged.connect(self.method_changed)
+        vbox.addWidget(self.cbx_method)
+
+        btn_run = QPushButton('run')
+        btn_run.clicked.connect(self.run_stardist_normalization)
+        vbox.addWidget(btn_run)
+
+    def image_changed(self, index: int):
+        self.name = self.parent.layer_names[index]
+
+    def run_stardist_segmentation(self):
+        if self.name == '':
+            self.image_changed(0)
+
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
+            input_image = layer.data
+        else:
+            print('Error: The image %s don\'t exist!' % (self.name))
+            return
+
+        labels, _ = model.predict_instances(normalize(input_image))
+        self.viewer.add_image(render_label(labels, img=img), name=self.name)
 
 class IntensityNormalization(QGroupBox):
     # (15.11.2024) Function 1
@@ -564,6 +624,16 @@ class mmv_playground(QWidget):
         group_box.setLayout(vbox2)
         scroll_area.setWidget(group_box)        
 
+        # Button stardist segmentation
+        self.btn_stardist_segmentation = QPushButton('Stardist Segmentation')
+        self.btn_stardist_segmentation.setCheckable(True)
+        self.btn_stardist_segmentation.clicked.connect(self.toggle_stardist_segmentation)
+        vbox2.addWidget(self.btn_stardist)
+
+        # Stardist normalization
+        self.stardist_segmentation = StardistSegmentation(self)
+        vbox2.addWidget(self.stardist_segmentation)
+
         # Button intensity normalization
         self.btn_intensity = QPushButton('Intensity normalization')
         self.btn_intensity.setCheckable(True)
@@ -645,6 +715,16 @@ class mmv_playground(QWidget):
         for layer in self.viewer.layers:
             layer.events.name.connect(self.find_layers)
 
+    def toggle_stardist_segmentation(self, checked: bool):
+        # Switching the visibility of the intensity normalization
+        # (15.11.2024)
+        if self.stardist_segmentation.isVisible():
+            self.stardist_segmentation.setVisible(False)
+            self.btn_stardist_segmentation.setText('Stardist Segmentation')
+        else:
+            self.stardist_segmentation.setVisible(True)
+            self.btn_stardist_segmentation.setText('Hide stardist segmentation')
+            
     def toggle_intensity_normalization(self, checked: bool):
         # Switching the visibility of the intensity normalization
         # (15.11.2024)
