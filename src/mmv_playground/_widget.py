@@ -96,7 +96,7 @@ class StardistSegmentation(QGroupBox):
             model = StarDist2D.from_pretrained('2D_versatile_fluo')
         elif (self.method == 'Versatile (H&E nuclei)'):
             model = StarDist2D.from_pretrained('2D_versatile_he')
-        elif (self.method = 'DSB 2018 (from StarDist 2D Paper)'):
+        elif (self.method == 'DSB 2018 (from StarDist 2D Paper)'):
             model = StarDist2D.from_pretrained('2D_paper_dsb2018')
         labels, _ = model.predict_instances(normalize(input_image))
         self.viewer.add_image(render_label(labels, img=input_image), name=self.name)
