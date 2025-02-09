@@ -60,6 +60,7 @@ class StardistSegmentation(QGroupBox):
 
         vbox.addWidget(QLabel('image'))
         self.cbx_image = QComboBox()
+        print("Got images :", parent.layer_names)
         self.cbx_image.addItems(parent.layer_names)
         self.cbx_image.currentIndexChanged.connect(self.image_changed)
         vbox.addWidget(self.cbx_image)
