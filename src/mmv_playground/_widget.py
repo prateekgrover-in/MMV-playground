@@ -60,7 +60,7 @@ class StardistSegmentation(QGroupBox):
 
         vbox.addWidget(QLabel('Segmentation method'))
         self.cbx_method = QComboBox()
-        self.cbx_method.addItems(['Versatile (fluorescent nuclei)', 'Versatile (H&E nuclei)', 'DSB 2018 (from StarDist 2D Paper)'])
+        self.cbx_method.addItems(['Versatile (fluorescent nuclei)', 'DSB 2018 (from StarDist 2D Paper)'])
         self.cbx_method.currentIndexChanged.connect(self.method_changed)
         vbox.addWidget(self.cbx_method)
 
@@ -75,8 +75,6 @@ class StardistSegmentation(QGroupBox):
         if index == 0:
             self.method = 'Versatile (fluorescent nuclei)'
         elif index == 1:
-            self.method = 'Versatile (H&E nuclei)'
-        elif index == 2:
             self.method = 'DSB 2018 (from StarDist 2D Paper)'
         else:
             self.method = 'unknown method'
@@ -94,8 +92,6 @@ class StardistSegmentation(QGroupBox):
 
         if (self.method == 'Versatile (fluorescent nuclei)'):
             model = StarDist2D.from_pretrained('2D_versatile_fluo')
-        elif (self.method == 'Versatile (H&E nuclei)'):
-            model = StarDist2D.from_pretrained('2D_versatile_he')
         elif (self.method == 'DSB 2018 (from StarDist 2D Paper)'):
             model = StarDist2D.from_pretrained('2D_paper_dsb2018')
         else:
