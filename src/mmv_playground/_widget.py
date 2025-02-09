@@ -77,6 +77,12 @@ class StardistSegmentation(QGroupBox):
     def image_changed(self, index: int):
         self.name = self.parent.layer_names[index]
 
+    def method_changed(self, index: int):
+        if index == 0:
+            self.method = 'Stardist'
+        else:
+            self.method = 'unknown method'
+
     def run_stardist_segmentation(self):
         if self.name == '':
             self.image_changed(0)
