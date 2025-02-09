@@ -628,7 +628,7 @@ class mmv_playground(QWidget):
         self.btn_stardist_segmentation = QPushButton('Stardist Segmentation')
         self.btn_stardist_segmentation.setCheckable(True)
         self.btn_stardist_segmentation.clicked.connect(self.toggle_stardist_segmentation)
-        vbox2.addWidget(self.btn_stardist)
+        vbox2.addWidget(self.btn_stardist_segmentation)
 
         # Stardist normalization
         self.stardist_segmentation = StardistSegmentation(self)
