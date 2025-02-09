@@ -52,6 +52,7 @@ class StardistSegmentation(QGroupBox):
         self.viewer = parent.viewer
         self.parent = parent
         self.name = ''          # layer.name
+        self.method = 'Stardist'
 
         # layout and parameters for intensity normalization
         vbox = QVBoxLayout()
