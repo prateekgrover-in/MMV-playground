@@ -31,12 +31,6 @@ if TYPE_CHECKING:
 
 from stardist.models import StarDist2D
 
-# prints a list of available models
-StarDist2D.from_pretrained()
-
-# creates a pretrained model
-model = StarDist2D.from_pretrained('2D_versatile_fluo')
-
 from stardist.data import test_image_nuclei_2d
 from stardist.plot import render_label
 from csbdeep.utils import normalize
@@ -66,7 +60,7 @@ class StardistSegmentation(QGroupBox):
 
         vbox.addWidget(QLabel('Segmentation method'))
         self.cbx_method = QComboBox()
-        self.cbx_method.addItems(['Stardist'])
+        self.cbx_method.addItems(['Versatile (fluorescent nuclei)', 'Versatile (H&E nuclei)', 'DSB 2018 (from StarDist 2D Paper)'])
         self.cbx_method.currentIndexChanged.connect(self.method_changed)
         vbox.addWidget(self.cbx_method)
 
@@ -79,7 +73,11 @@ class StardistSegmentation(QGroupBox):
 
     def method_changed(self, index: int):
         if index == 0:
-            self.method = 'Stardist'
+            self.method = 'Versatile (fluorescent nuclei)'
+        elif index == 1:
+            self.method = 'Versatile (H&E nuclei)'
+        elif index == 2:
+            self.method = 'DSB 2018 (from StarDist 2D Paper)'
         else:
             self.method = 'unknown method'
 
@@ -94,6 +92,12 @@ class StardistSegmentation(QGroupBox):
             print('Error: The image %s don\'t exist!' % (self.name))
             return
 
+        if (self.method == 'Versatile (fluorescent nuclei)'):
+            model = StarDist2D.from_pretrained('2D_versatile_fluo')
+        elif (self.method == 'Versatile (H&E nuclei)'):
+            model = StarDist2D.from_pretrained('2D_versatile_he')
+        elif (self.method = 'DSB 2018 (from StarDist 2D Paper)'):
+            model = StarDist2D.from_pretrained('2D_paper_dsb2018')
         labels, _ = model.predict_instances(normalize(input_image))
         self.viewer.add_image(render_label(labels, img=input_image), name=self.name)
 
