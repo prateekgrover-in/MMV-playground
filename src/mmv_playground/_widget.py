@@ -71,7 +71,7 @@ class StardistSegmentation(QGroupBox):
         vbox.addWidget(self.cbx_method)
 
         btn_run = QPushButton('run')
-        btn_run.clicked.connect(self.run_stardist_normalization)
+        btn_run.clicked.connect(self.run_stardist_segmentation)
         vbox.addWidget(btn_run)
 
     def image_changed(self, index: int):
