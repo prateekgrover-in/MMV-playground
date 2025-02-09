@@ -95,7 +95,7 @@ class StardistSegmentation(QGroupBox):
             return
 
         labels, _ = model.predict_instances(normalize(input_image))
-        self.viewer.add_image(render_label(labels, img=img), name=self.name)
+        self.viewer.add_image(render_label(labels, img=input_image), name=self.name)
 
 class IntensityNormalization(QGroupBox):
     # (15.11.2024) Function 1
