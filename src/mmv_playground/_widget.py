@@ -145,7 +145,100 @@ class GoogleDriveUploader(QGroupBox):
             QMessageBox.critical(self, "Upload Failed", f"Error: {str(e)}")
         finally:
             self.btn_upload.setEnabled(True)
+
+import torch
+import segmentation_models_pytorch as smp
+import numpy as np
+from qtpy.QtWidgets import QGroupBox, QVBoxLayout, QLabel, QComboBox, QPushButton, QMessageBox
+from PIL import Image
+import os
+
+class UNetSegmentation(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle('U-Net Segmentation')
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.setStyleSheet('QGroupBox {background-color: lightblue; border-radius: 10px;}')
+        self.viewer = parent.viewer
+        self.parent = parent
+        self.name = ''  # Selected image layer
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.model_path = '/content/drive/MyDrive/cell_segmentation_unet.pth'  # Change this path as needed
+
+        # Layout
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+
+        # Image selection dropdown
+        vbox.addWidget(QLabel('Select Image'))
+        self.cbx_image = QComboBox()
+        self.cbx_image.addItems(parent.layer_names)
+        self.cbx_image.currentIndexChanged.connect(self.image_changed)
+        vbox.addWidget(self.cbx_image)
+
+        # Run segmentation button
+        btn_run = QPushButton('Run U-Net Segmentation')
+        btn_run.clicked.connect(self.run_unet_segmentation)
+        vbox.addWidget(btn_run)
+
+        # Load U-Net model
+        self.load_model()
+
+    def load_model(self):
+        """Load the pre-trained U-Net model."""
+        try:
+            self.model = smp.Unet(
+                encoder_name="resnet34",
+                encoder_weights="imagenet",
+                in_channels=1,
+                classes=1,
+            ).to(self.device)
             
+            self.model.load_state_dict(torch.load(self.model_path, map_location=self.device))
+            self.model.eval()
+            print(f"✅ U-Net model loaded successfully on {self.device}")
+        except Exception as e:
+            QMessageBox.critical(self, "Model Error", f"Failed to load U-Net model!\n{str(e)}")
+
+    def image_changed(self, index: int):
+        """Update the selected image layer."""
+        self.name = self.parent.layer_names[index]
+
+    def preprocess_image(self, image):
+        """Preprocess the image for U-Net segmentation."""
+        # Normalize to [0,1] and convert to tensor
+        img = np.array(image).astype(np.float32) / 255.0
+        img = torch.tensor(img).unsqueeze(0).unsqueeze(0).to(self.device)  # Shape: (1, 1, H, W)
+        return img
+
+    def run_unet_segmentation(self):
+        """Run U-Net segmentation on the selected image."""
+        if self.name == '':
+            self.image_changed(0)  # Select first layer if none chosen
+
+        # Get image data from Napari
+        if any(layer.name == self.name for layer in self.viewer.layers):
+            layer = self.viewer.layers[self.name]
+            input_image = layer.data
+        else:
+            QMessageBox.warning(self, "Error", f"Image {self.name} does not exist!")
+            return
+
+        # Preprocess image
+        input_tensor = self.preprocess_image(input_image)
+
+        # Run prediction
+        with torch.no_grad():
+            output = self.model(input_tensor)
+
+        # Convert output to binary mask
+        predicted_mask = output.squeeze().cpu().numpy()
+
+        # Add segmentation result to Napari
+        self.viewer.add_image(predicted_mask, name=f"{self.name}_mask", colormap='gray')
+        print("✅ Segmentation completed!")
+
+
 class StardistSegmentation(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -851,6 +944,14 @@ class mmv_playground(QWidget):
             self.google_drive_uploader.setVisible(True)
             self.btn_google_drive_uploader.setText('Hide Finetuning Model')
 
+    def toggle_unet_segmentation(self, checked: bool):
+        if self.unet_segmentation.isVisible():
+            self.unet_segmentation.setVisible(False)
+            self.btn_unet_segmentation.setText('UNet Segmentation')
+        else:
+            self.unet_segmentation.setVisible(True)
+            self.btn_unet_segmentation.setText('Hide UNet Segmentation')
+            
     def toggle_stardist_segmentation(self, checked: bool):
         # Switching the visibility of the intensity normalization
         # (15.11.2024)
@@ -940,7 +1041,8 @@ class mmv_playground(QWidget):
         self.layer_names = lst
 
         if self.init_ready:
-            self.stardist_segmentation.cbx_image.addItems(lst)
+            self.unet_segmentation.cbx_image.clear()
+            self.unet_segmentation.cbx_image.addItems(lst)
             self.stardist_segmentation.cbx_image.clear()
             self.stardist_segmentation.cbx_image.addItems(lst)
             self.intensity_normalization.cbx_image.clear()
