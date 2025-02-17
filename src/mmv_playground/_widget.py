@@ -42,6 +42,7 @@ import threading
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.service_account import Credentials
+import torch.nn.functional as F
 
 class GoogleDriveUploader(QGroupBox):
     def __init__(self, parent=None):
