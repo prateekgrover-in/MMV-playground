@@ -43,6 +43,146 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 from google.oauth2.service_account import Credentials
 import torch.nn.functional as F
+from skimage.segmentation import watershed
+import torch
+import segmentation_models_pytorch as smp
+import numpy as np
+from qtpy.QtWidgets import QGroupBox, QVBoxLayout, QLabel, QComboBox, QPushButton, QMessageBox
+from PIL import Image
+import os
+
+
+def remove_small_instances(segm: np.ndarray,
+                           thres_small: int = 128,
+                           mode: str = 'background'):
+    """Remove small spurious instances.
+    """
+    assert mode in ['none',
+                    'background',
+                    'background_2d',
+                    'neighbor',
+                    'neighbor_2d']
+
+    if mode == 'none':
+        return segm
+
+    if mode == 'background':
+        return remove_small_objects(segm, thres_small)
+    elif mode == 'background_2d':
+        temp = [remove_small_objects(segm[i], thres_small)
+                for i in range(segm.shape[0])]
+        return np.stack(temp, axis=0)
+
+    if mode == 'neighbor':
+        return merge_small_objects(segm, thres_small, do_3d=True)
+    elif mode == 'neighbor_2d':
+        temp = [merge_small_objects(segm[i], thres_small)
+                for i in range(segm.shape[0])]
+        return np.stack(temp, axis=0)
+
+def merge_small_objects(segm, thres_small, do_3d=False):
+    struct = np.ones((1,3,3)) if do_3d else np.ones((3,3))
+    indices, counts = np.unique(segm, return_counts=True)
+
+    for i in range(len(indices)):
+        idx = indices[i]
+        if counts[i] < thres_small:
+            temp = (segm == idx).astype(np.uint8)
+            coord = bbox_ND(temp, relax=2)
+            cropped = crop_ND(temp, coord)
+
+            diff = dilation(cropped, struct) - cropped
+            diff_segm = crop_ND(segm, coord)
+            diff_segm[np.where(diff==0)]=0
+
+            u, ct = np.unique(diff_segm, return_counts=True)
+            if len(u) > 1 and u[0] == 0:
+                u, ct = u[1:], ct[1:]
+
+            segm[np.where(segm==idx)] = u[np.argmax(ct)]
+
+    return segm
+
+from scipy import ndimage
+from skimage.measure import label
+from skimage.transform import resize
+from skimage.morphology import dilation
+from skimage.segmentation import watershed
+from skimage.morphology import remove_small_objects
+
+def bcd_watershed(semantic, boundary, distance, thres1=0.9, thres2=0.8, thres3=0.85, thres4=0.5, thres5=0.0, thres_small=128,
+                  scale_factors=(1.0, 1.0, 1.0), remove_small_mode='background', seed_thres=32, return_seed=False):
+    r"""Convert binary foreground probability maps, instance contours and signed distance
+    transform to instance masks via watershed segmentation algorithm.
+    Note:
+        This function uses the `skimage.segmentation.watershed <https://github.com/scikit-image/scikit-image/blob/master/skimage/segmentation/_watershed.py#L89>`_
+        function that converts the input image into ``np.float64`` data type for processing. Therefore please make sure enough memory is allocated when handling large arrays.
+    Args:
+        volume (numpy.ndarray): foreground and contour probability of shape :math:`(C, Z, Y, X)`.
+        thres1 (float): threshold of seeds. Default: 0.9
+        thres2 (float): threshold of instance contours. Default: 0.8
+        thres3 (float): threshold of foreground. Default: 0.85
+        thres4 (float): threshold of signed distance for locating seeds. Default: 0.5
+        thres5 (float): threshold of signed distance for foreground. Default: 0.0
+        thres_small (int): size threshold of small objects to remove. Default: 128
+        scale_factors (tuple): scale factors for resizing in :math:`(Z, Y, X)` order. Default: (1.0, 1.0, 1.0)
+        remove_small_mode (str): ``'background'``, ``'neighbor'`` or ``'none'``. Default: ``'background'``
+    """
+    distance = (distance / 255.0) * 2.0 - 1.0
+    seed_map = (semantic > int(255*thres1)) * (boundary < int(255*thres2)) * (distance > thres4)
+    foreground = (semantic > int(255*thres3)) * (distance > thres5)
+    seed = label(seed_map)
+    #print(np.unique(seed), "seeds")
+    seed = remove_small_objects(seed, seed_thres)
+    segm = watershed(-semantic.astype(np.float64), seed, mask=foreground)
+    segm = remove_small_instances(segm, thres_small, remove_small_mode)
+
+    if not all(x==1.0 for x in scale_factors):
+        target_size = (int(semantic.shape[0]*scale_factors[0]),
+                       int(semantic.shape[1]*scale_factors[1]),
+                       int(semantic.shape[2]*scale_factors[2]))
+        segm = resize(segm, target_size, order=0, anti_aliasing=False, preserve_range=True)
+
+    if not return_seed:
+        return cast2dtype(segm)
+
+    return cast2dtype(segm), seed
+
+#@title
+# !pip install csbdeep
+import numpy as np
+
+from numba import jit
+from tqdm import tqdm
+from scipy.optimize import linear_sum_assignment
+from collections import namedtuple
+from csbdeep.utils import _raise
+
+matching_criteria = dict()
+
+def label_are_sequential(y):
+    """ returns true if y has only sequential labels from 1... """
+    labels = np.unique(y)
+    return (set(labels)-{0}) == set(range(1,1+labels.max()))
+
+
+def is_array_of_integers(y):
+    return isinstance(y,np.ndarray) and np.issubdtype(y.dtype, np.integer)
+
+
+def _check_label_array(y, name=None, check_sequential=False):
+    err = ValueError("{label} must be an array of {integers}.".format(
+        label = 'labels' if name is None else name,
+        integers = ('sequential ' if check_sequential else '') + 'non-negative integers',
+    ))
+    is_array_of_integers(y) or _raise(err)
+    if len(y) == 0:
+        return True
+    if check_sequential:
+        label_are_sequential(y) or _raise(err)
+    else:
+        y.min() >= 0 or _raise(err)
+    return True
 
 class GoogleDriveUploader(QGroupBox):
     def __init__(self, parent=None):
@@ -147,12 +287,6 @@ class GoogleDriveUploader(QGroupBox):
         finally:
             self.btn_upload.setEnabled(True)
 
-import torch
-import segmentation_models_pytorch as smp
-import numpy as np
-from qtpy.QtWidgets import QGroupBox, QVBoxLayout, QLabel, QComboBox, QPushButton, QMessageBox
-from PIL import Image
-import os
 class UNetSegmentation(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -240,9 +374,21 @@ class UNetSegmentation(QGroupBox):
         # Resize the output back to the original size
         predicted_mask = F.interpolate(output, size=original_size, mode="bilinear", align_corners=False)
         predicted_mask = predicted_mask.squeeze().cpu().numpy()
+        predicted_mask = (predicted_mask - np.min(predicted_mask))
+        predicted_mask = predicted_mask/np.max(predicted_mask)
+        
+        semantic = predicted_mask
+        seed_map = (predicted_mask > 0.75)
+        foreground = (predicted_mask > 0.4)
+        seed = label(seed_map)
+        
+        # seed = remove_small_objects(seed, 32)
+        segm = watershed(-semantic.astype(np.float64), seed, mask=foreground)
+        # segm = remove_small_instances(segm, 128, 'background')
+        result = segm
 
         # Add segmentation result to Napari
-        self.viewer.add_image(predicted_mask, name=f"{self.name}_mask", colormap='gray')
+        self.viewer.add_image(result, name=f"{self.name}_mask", colormap='gray')
         print("✅ Segmentation completed!")
 
 
