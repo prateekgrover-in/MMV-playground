@@ -378,8 +378,8 @@ class UNetSegmentation(QGroupBox):
         predicted_mask = predicted_mask/np.max(predicted_mask)
         
         semantic = predicted_mask
-        seed_map = (predicted_mask > 0.75)
-        foreground = (predicted_mask > 0.4)
+        seed_map = (predicted_mask > 0.9)
+        foreground = (predicted_mask > 0.75)
         seed = label(seed_map)
         
         # seed = remove_small_objects(seed, 32)
