@@ -152,7 +152,6 @@ import numpy as np
 from qtpy.QtWidgets import QGroupBox, QVBoxLayout, QLabel, QComboBox, QPushButton, QMessageBox
 from PIL import Image
 import os
-
 class UNetSegmentation(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -163,7 +162,8 @@ class UNetSegmentation(QGroupBox):
         self.parent = parent
         self.name = ''  # Selected image layer
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model_path = 'C:/Users/grover01/Desktop/cell_segmentation_unet.pth'  # Change this path as needed
+        self.model_path = '/content/drive/MyDrive/cell_segmentation_unet.pth'  # Change this path as needed
+        self.target_size = (256, 256)  # U-Net input size
 
         # Layout
         vbox = QVBoxLayout()
@@ -205,11 +205,16 @@ class UNetSegmentation(QGroupBox):
         self.name = self.parent.layer_names[index]
 
     def preprocess_image(self, image):
-        """Preprocess the image for U-Net segmentation."""
-        # Normalize to [0,1] and convert to tensor
-        img = np.array(image).astype(np.float32) / 255.0
-        img = torch.tensor(img).unsqueeze(0).unsqueeze(0).to(self.device)  # Shape: (1, 1, H, W)
-        return img
+        """Resize and preprocess the image for U-Net segmentation."""
+        original_size = image.shape  # Save original size for upsampling
+        img = Image.fromarray(image).convert("L")  # Convert to grayscale
+        img = img.resize(self.target_size, Image.BILINEAR)  # Resize to (256,256)
+        img = np.array(img).astype(np.float32) / 255.0  # Normalize
+
+        # Convert to tensor and send to device
+        img_tensor = torch.tensor(img).unsqueeze(0).unsqueeze(0).to(self.device)
+
+        return img_tensor, original_size
 
     def run_unet_segmentation(self):
         """Run U-Net segmentation on the selected image."""
@@ -224,15 +229,16 @@ class UNetSegmentation(QGroupBox):
             QMessageBox.warning(self, "Error", f"Image {self.name} does not exist!")
             return
 
-        # Preprocess image
-        input_tensor = self.preprocess_image(input_image)
+        # Preprocess image (resize to 256x256)
+        input_tensor, original_size = self.preprocess_image(input_image)
 
         # Run prediction
         with torch.no_grad():
             output = self.model(input_tensor)
 
-        # Convert output to binary mask
-        predicted_mask = output.squeeze().cpu().numpy()
+        # Resize the output back to the original size
+        predicted_mask = F.interpolate(output, size=original_size, mode="bilinear", align_corners=False)
+        predicted_mask = predicted_mask.squeeze().cpu().numpy()
 
         # Add segmentation result to Napari
         self.viewer.add_image(predicted_mask, name=f"{self.name}_mask", colormap='gray')
