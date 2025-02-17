@@ -46,7 +46,7 @@ from google.oauth2.service_account import Credentials
 class GoogleDriveUploader(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setTitle('Dataset Upload to Google Drive')
+        self.setTitle('Finetuning Model')
         self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
         self.setStyleSheet('QGroupBox {background-color: lightgray; border-radius: 10px;}')
         
@@ -63,7 +63,7 @@ class GoogleDriveUploader(QGroupBox):
         vbox.addWidget(self.dataset_path_input)
 
         # Upload button
-        self.btn_upload = QPushButton('Upload Dataset')
+        self.btn_upload = QPushButton('Finetune Model')
         self.btn_upload.clicked.connect(self.start_upload)
         vbox.addWidget(self.btn_upload)
 
