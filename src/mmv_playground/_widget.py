@@ -744,6 +744,14 @@ class mmv_playground(QWidget):
         group_box.setLayout(vbox2)
         scroll_area.setWidget(group_box)        
 
+        self.btn_google_drive_uploader = QPushButton('Finetuning Model')
+        self.btn_google_drive_uploader.setCheckable(True)
+        self.btn_google_drive_uploader.clicked.connect(self.toggle_google_drive_uploader)
+        vbox2.addWidget(self.btn_google_drive_uploader)
+
+        self.google_drive_uploader = GoogleDriveUploader(self)
+        vbox2.addWidget(self.google_drive_uploader)
+        
         # Button stardist segmentation
         self.btn_stardist_segmentation = QPushButton('Stardist Segmentation')
         self.btn_stardist_segmentation.setCheckable(True)
@@ -835,6 +843,14 @@ class mmv_playground(QWidget):
         for layer in self.viewer.layers:
             layer.events.name.connect(self.find_layers)
 
+    def toggle_google_drive_uploader(self, checked: bool):
+        if self.google_drive_uploader.isVisible():
+            self.google_drive_uploader.setVisible(False)
+            self.btn_google_drive_uploader.setText('Finetuning Model')
+        else:
+            self.google_drive_uploader.setVisible(True)
+            self.btn_google_drive_uploader.setText('Hide Finetuning Model')
+
     def toggle_stardist_segmentation(self, checked: bool):
         # Switching the visibility of the intensity normalization
         # (15.11.2024)
@@ -924,6 +940,7 @@ class mmv_playground(QWidget):
         self.layer_names = lst
 
         if self.init_ready:
+            self.stardist_segmentation.cbx_image.addItems(lst)
             self.stardist_segmentation.cbx_image.clear()
             self.stardist_segmentation.cbx_image.addItems(lst)
             self.intensity_normalization.cbx_image.clear()
