@@ -71,7 +71,7 @@ class GoogleDriveUploader(QGroupBox):
         """Authenticate Google Drive API."""
         SCOPES = ['https://www.googleapis.com/auth/drive']
         creds = Credentials.from_service_account_file(
-            "/Users/prateekgrover/Downloads/celldynamicsplatform-debdeefdc0a9.json",
+            "C:/Users/grover01/Desktop/celldynamicsplatform-debdeefdc0a9.json",
             scopes=SCOPES
         )
         return build('drive', 'v3', credentials=creds)
