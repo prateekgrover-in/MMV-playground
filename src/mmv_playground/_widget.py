@@ -163,7 +163,7 @@ class UNetSegmentation(QGroupBox):
         self.parent = parent
         self.name = ''  # Selected image layer
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model_path = '/content/drive/MyDrive/cell_segmentation_unet.pth'  # Change this path as needed
+        self.model_path = 'C:/Users/grover01/Desktop/cell_segmentation_unet.pth'  # Change this path as needed
 
         # Layout
         vbox = QVBoxLayout()
