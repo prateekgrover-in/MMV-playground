@@ -35,6 +35,117 @@ from stardist.data import test_image_nuclei_2d
 from stardist.plot import render_label
 from csbdeep.utils import normalize
 
+from qtpy.QtWidgets import QGroupBox, QVBoxLayout, QLabel, QLineEdit, QPushButton, QMessageBox
+import os
+import time
+import threading
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2.service_account import Credentials
+
+class GoogleDriveUploader(QGroupBox):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setTitle('Dataset Upload to Google Drive')
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Maximum)
+        self.setStyleSheet('QGroupBox {background-color: lightgray; border-radius: 10px;}')
+        
+        self.parent = parent
+        self.drive_folder_id = "1zJFdZEdmsTVFNPQUMcV3jVcwU4WBsxc-"  # Change this to your Drive folder ID
+        
+        # Layout
+        vbox = QVBoxLayout()
+        self.setLayout(vbox)
+
+        # Input field for dataset path
+        vbox.addWidget(QLabel('Dataset Folder Path:'))
+        self.dataset_path_input = QLineEdit()
+        vbox.addWidget(self.dataset_path_input)
+
+        # Upload button
+        self.btn_upload = QPushButton('Upload Dataset')
+        self.btn_upload.clicked.connect(self.start_upload)
+        vbox.addWidget(self.btn_upload)
+
+    def authenticate_drive(self):
+        """Authenticate Google Drive API."""
+        SCOPES = ['https://www.googleapis.com/auth/drive']
+        creds = Credentials.from_service_account_file(
+            "/Users/prateekgrover/Downloads/celldynamicsplatform-debdeefdc0a9.json",
+            scopes=SCOPES
+        )
+        return build('drive', 'v3', credentials=creds)
+
+    def get_folder_id(self, parent_folder_id, folder_name):
+        """Check if a folder exists in Google Drive, and return its ID. If not, create it."""
+        query = f"name='{folder_name}' and mimeType='application/vnd.google-apps.folder' and '{parent_folder_id}' in parents"
+        response = self.drive_service.files().list(q=query, fields="files(id)").execute()
+
+        if response.get('files'):
+            return response['files'][0]['id']
+
+        # Create the folder if it does not exist
+        folder_metadata = {
+            'name': folder_name,
+            'mimeType': 'application/vnd.google-apps.folder',
+            'parents': [parent_folder_id]
+        }
+        folder = self.drive_service.files().create(body=folder_metadata, fields='id').execute()
+        return folder['id']
+
+    def upload_file(self, file_path, parent_folder_id):
+        """Upload a single file to Google Drive."""
+        file_metadata = {'name': os.path.basename(file_path), 'parents': [parent_folder_id]}
+        media = MediaFileUpload(file_path, resumable=True)
+        file = self.drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        print(f"✅ Uploaded: {file_path} (ID: {file.get('id')})")
+
+    def upload_folder(self, local_folder, drive_parent_folder_id):
+        """Recursively upload a local folder (including subfolders) to Google Drive."""
+        for root, dirs, files in os.walk(local_folder):
+            # Create subfolder inside Google Drive (if needed)
+            relative_path = os.path.relpath(root, local_folder)
+            if relative_path == ".":
+                current_drive_folder_id = drive_parent_folder_id
+            else:
+                current_drive_folder_id = self.get_folder_id(drive_parent_folder_id, relative_path)
+
+            # Upload files in the current folder
+            for file in files:
+                file_path = os.path.join(root, file)
+                self.upload_file(file_path, current_drive_folder_id)
+
+        print(f"\n📂 All files from '{local_folder}' uploaded to Google Drive (ID: {drive_parent_folder_id})")
+
+        # Create and upload "done.txt" checkpoint file
+        done_file_path = os.path.join(local_folder, "done.txt")
+        with open(done_file_path, "w") as f:
+            f.write("Upload completed successfully.\n")
+
+        self.upload_file(done_file_path, drive_parent_folder_id)
+        print("✅ Uploaded checkpoint: done.txt")
+
+    def start_upload(self):
+        """Start the dataset upload process in a separate thread."""
+        dataset_path = self.dataset_path_input.text().strip()
+        if not dataset_path or not os.path.exists(dataset_path):
+            QMessageBox.warning(self, "Error", "Invalid dataset path! Please enter a valid folder.")
+            return
+        
+        self.btn_upload.setEnabled(False)
+        threading.Thread(target=self.upload_process, args=(dataset_path,), daemon=True).start()
+
+    def upload_process(self, dataset_path):
+        """Handles the dataset upload process."""
+        try:
+            self.drive_service = self.authenticate_drive()
+            self.upload_folder(dataset_path, self.drive_folder_id)
+            QMessageBox.information(self, "Success", "Dataset uploaded successfully!")
+        except Exception as e:
+            QMessageBox.critical(self, "Upload Failed", f"Error: {str(e)}")
+        finally:
+            self.btn_upload.setEnabled(True)
+            
 class StardistSegmentation(QGroupBox):
     def __init__(self, parent=None):
         super().__init__(parent)
