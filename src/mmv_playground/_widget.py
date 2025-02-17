@@ -837,6 +837,15 @@ class mmv_playground(QWidget):
         group_box.setLayout(vbox2)
         scroll_area.setWidget(group_box)        
 
+        self.btn_unet_segmentation = QPushButton('UNet Segmentation')
+        self.btn_unet_segmentation.setCheckable(True)
+        self.btn_unet_segmentation.clicked.connect(self.toggle_unet_segmentation)
+        vbox2.addWidget(self.btn_unet_segmentation)
+
+        # Stardist normalization
+        self.unet_segmentation = UNetSegmentation(self)
+        vbox2.addWidget(self.unet_segmentation)
+        
         self.btn_google_drive_uploader = QPushButton('Finetuning Model')
         self.btn_google_drive_uploader.setCheckable(True)
         self.btn_google_drive_uploader.clicked.connect(self.toggle_google_drive_uploader)
